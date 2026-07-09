@@ -1,4 +1,4 @@
-# Entrena tu Voz
+# SCREAM.io MVP Test
 
 Prototipo académico de aplicación móvil para aprendizaje vocal (Expo 57 + React Native + TypeScript).
 
