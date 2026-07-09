@@ -39,3 +39,10 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# Cursor / IDE
+.cursor/
+
+# Expo debug exports
+.expo-debug-export/
+
