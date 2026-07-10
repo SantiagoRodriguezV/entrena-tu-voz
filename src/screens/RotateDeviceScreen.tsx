@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Image, Platform, StyleSheet, Text, View } from 'react-native';
 import * as ScreenOrientation from 'expo-screen-orientation';
+import { ExerciseBackHeader } from '../components/ExerciseBackHeader';
 import { PillActionButton } from '../components/PillActionButton';
 import { ScreenLayout } from '../components/ScreenLayout';
 import { colors } from '../theme/colors';
@@ -9,6 +10,7 @@ import { fonts, fontSizes } from '../theme/typography';
 
 type RotateDeviceScreenProps = {
   onContinue: () => void;
+  onBack: () => void;
 };
 
 const rotateImage = require('../../assets/images/rota-tu-celular.png');
@@ -21,7 +23,7 @@ function isLandscapeOrientation(
   );
 }
 
-export function RotateDeviceScreen({ onContinue }: RotateDeviceScreenProps) {
+export function RotateDeviceScreen({ onContinue, onBack }: RotateDeviceScreenProps) {
   const [isLandscape, setIsLandscape] = useState(false);
 
   useEffect(() => {
@@ -52,6 +54,9 @@ export function RotateDeviceScreen({ onContinue }: RotateDeviceScreenProps) {
 
   return (
     <ScreenLayout variant="dark">
+      <View style={styles.backRow}>
+        <ExerciseBackHeader onConfirmBack={onBack} />
+      </View>
       <View style={styles.center}>
         <Image source={rotateImage} style={styles.image} resizeMode="contain" />
         <Text style={styles.title}>Rota tu celular hacia la izquierda</Text>
@@ -73,6 +78,9 @@ export function RotateDeviceScreen({ onContinue }: RotateDeviceScreenProps) {
 }
 
 const styles = StyleSheet.create({
+  backRow: {
+    paddingTop: spacing.sm,
+  },
   center: {
     flex: 1,
     alignItems: 'center',
@@ -87,7 +95,7 @@ const styles = StyleSheet.create({
   title: {
     fontFamily: fonts.title,
     fontSize: fontSizes.xl,
-    color: colors.textPrimary,
+    color: colors.light,
     textAlign: 'center',
     marginBottom: spacing.md,
   },

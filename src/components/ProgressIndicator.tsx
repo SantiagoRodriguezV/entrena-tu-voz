@@ -71,7 +71,7 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   stepTextCurrent: {
-    color: colors.textPrimary,
+    color: colors.light,
     fontWeight: '600',
   },
 });

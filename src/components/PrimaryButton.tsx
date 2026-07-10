@@ -105,22 +105,22 @@ const styles = StyleSheet.create({
   outline: {
     backgroundColor: 'transparent',
     borderWidth: 2,
-    borderColor: colors.textPrimary,
+    borderColor: colors.light,
   },
   disabled: {
     backgroundColor: colors.disabled,
     borderColor: colors.disabled,
   },
   label: {
-    color: '#FFFFFF',
+    color: colors.light,
     fontSize: fontSizes.lg,
     fontFamily: fonts.title,
     letterSpacing: 0.5,
   },
   outlineLabel: {
-    color: colors.textPrimary,
+    color: colors.light,
   },
   disabledLabel: {
-    color: '#FFFFFF',
+    color: colors.light,
   },
 });

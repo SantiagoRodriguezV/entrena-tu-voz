@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import Animated, {
   Easing,
@@ -15,11 +15,11 @@ import {
 } from '../audio/accuracyUtils';
 import { scoreNotePerformance } from '../audio/exerciseScoring';
 import {
-  applyHorizontalSnap,
-  applyPitchSnap,
   getCentsError,
   getCurrentTargetNote,
+  getDisplayPitchHz,
   getMinMaxHz,
+  getPitchRangeForDisplay,
   hzToY,
   isWithinNote,
 } from '../audio/pitchUtils';
@@ -29,13 +29,11 @@ import { ScreenLayout } from '../components/ScreenLayout';
 import { VoiceIndicator } from '../components/VoiceIndicator';
 import { WarmupExerciseShell } from '../components/warmup/WarmupExerciseShell';
 import {
-  WARMUP_LANE_HEIGHT,
-  WARMUP_PLAYHEAD_X,
-  WARMUP_PIXELS_PER_MS,
   WarmupNoteStaircase,
   getWarmupScrollLayout,
-  warmupTimeToX,
 } from '../components/warmup/WarmupNoteStaircase';
+import { getWarmupLaneMetrics, warmupTimeToX } from '../theme/warmupLaneMetrics';
+import { useResponsive } from '../theme/responsive';
 import { ExerciseNote, NotePerformance, VocalFrame } from '../types/exercise';
 import { colors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
@@ -53,6 +51,7 @@ type VocalExerciseScreenProps = {
     totalNotes: number;
   }) => void;
   onCancel: () => void;
+  onBack: () => void;
   vocalFrame: VocalFrame | null;
   micReady: boolean;
 };
@@ -67,9 +66,15 @@ export function VocalExerciseScreen({
   notes,
   onComplete,
   onCancel,
+  onBack,
   vocalFrame,
   micReady,
 }: VocalExerciseScreenProps) {
+  const { width, height } = useResponsive();
+  const laneMetrics = useMemo(
+    () => getWarmupLaneMetrics(width, height),
+    [width, height],
+  );
   const exerciseDurationMs = getLessonExerciseDuration(exerciseIndex - 1);
 
   const [timeMs, setTimeMs] = useState(0);
@@ -91,9 +96,14 @@ export function VocalExerciseScreen({
 
   const { minHz, maxHz } = getMinMaxHz(notes);
 
-  const indicatorX = useSharedValue(WARMUP_PLAYHEAD_X);
-  const indicatorY = useSharedValue(WARMUP_LANE_HEIGHT / 2);
+  const indicatorX = useSharedValue(laneMetrics.playheadX);
+  const indicatorY = useSharedValue(laneMetrics.laneHeight / 2);
   const indicatorOpacity = useSharedValue(1);
+
+  useEffect(() => {
+    indicatorX.value = laneMetrics.playheadX;
+    indicatorY.value = laneMetrics.laneHeight / 2;
+  }, [indicatorX, indicatorY, laneMetrics.laneHeight, laneMetrics.playheadX]);
 
   const updateIndicatorVisuals = useCallback(
     (
@@ -104,15 +114,25 @@ export function VocalExerciseScreen({
     ) => {
       if (!targetNote) return;
 
-      const layout = getWarmupScrollLayout(targetNote, minHz, maxHz);
+      const layout = getWarmupScrollLayout(targetNote, minHz, maxHz, laneMetrics);
       setIndicatorColor(getColorFromAccuracy(accuracy));
 
       if (frame.isVoiceActive && frame.detectedHz !== null) {
-        const snappedHz = applyPitchSnap(frame.detectedHz, targetNote.targetHz);
-        const snappedTime = applyHorizontalSnap(currentTime, targetNote);
-        const scrollOffset = currentTime * WARMUP_PIXELS_PER_MS - WARMUP_PLAYHEAD_X;
-        const targetX = warmupTimeToX(snappedTime) - scrollOffset;
-        const targetY = hzToY(snappedHz, minHz, maxHz, WARMUP_LANE_HEIGHT);
+        const scrollOffset =
+          currentTime * laneMetrics.pixelsPerMs - laneMetrics.playheadX;
+        const targetX =
+          warmupTimeToX(currentTime, laneMetrics.pixelsPerMs) - scrollOffset;
+        const displayHz = getDisplayPitchHz(frame.detectedHz, targetNote.targetHz);
+        const { minHz: displayMinHz, maxHz: displayMaxHz } = getPitchRangeForDisplay(
+          notes,
+          displayHz,
+        );
+        const targetY = hzToY(
+          displayHz,
+          displayMinHz,
+          displayMaxHz,
+          laneMetrics.laneHeight,
+        );
 
         indicatorX.value = withTiming(targetX, {
           duration: 150,
@@ -124,7 +144,7 @@ export function VocalExerciseScreen({
         });
         indicatorOpacity.value = withTiming(1, { duration: 200 });
       } else {
-        indicatorX.value = withTiming(WARMUP_PLAYHEAD_X, {
+        indicatorX.value = withTiming(laneMetrics.playheadX, {
           duration: 280,
           easing: Easing.inOut(Easing.ease),
         });
@@ -135,7 +155,7 @@ export function VocalExerciseScreen({
         indicatorOpacity.value = withTiming(0.35, { duration: 280 });
       }
     },
-    [indicatorOpacity, indicatorX, indicatorY, minHz, maxHz],
+    [indicatorOpacity, indicatorX, indicatorY, laneMetrics, minHz, maxHz, notes],
   );
 
   useEffect(() => {
@@ -307,6 +327,7 @@ export function VocalExerciseScreen({
       score={liveScore}
       showPause
       onPause={onCancel}
+      onBack={onBack}
     >
       <View style={styles.laneWrapper}>
         <WarmupNoteStaircase
@@ -339,7 +360,7 @@ const styles = StyleSheet.create({
   waitingTitle: {
     fontFamily: fonts.title,
     fontSize: fontSizes.xl,
-    color: colors.textPrimary,
+    color: colors.light,
     marginBottom: spacing.md,
     textAlign: 'center',
   },

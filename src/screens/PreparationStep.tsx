@@ -111,7 +111,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 24,
     fontWeight: '700',
-    color: colors.textPrimary,
+    color: colors.light,
     marginBottom: spacing.sm,
   },
   subtitle: {
@@ -145,7 +145,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 15,
     lineHeight: 22,
-    color: colors.textPrimary,
+    color: colors.light,
   },
   permissionCard: {
     backgroundColor: colors.surface,
@@ -159,7 +159,7 @@ const styles = StyleSheet.create({
   permissionTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: colors.textPrimary,
+    color: colors.light,
   },
   statusRow: {
     flexDirection: 'row',

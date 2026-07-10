@@ -1,6 +1,19 @@
 import { useCallback, useState } from 'react';
 import { INITIAL_LEVELS } from '../data/levels';
+import {
+  REPASO_PREREQUISITES,
+  UNLOCK_ON_COMPLETE,
+} from '../data/mapEdges';
 import { Level } from '../types/exercise';
+
+function canUnlockLevel(levels: Level[], targetId: string): boolean {
+  if (targetId === 'repaso-1') {
+    return REPASO_PREREQUISITES.every(
+      (id) => levels.find((l) => l.id === id)?.status === 'completed',
+    );
+  }
+  return true;
+}
 
 export function useLevelProgress() {
   const [levels, setLevels] = useState<Level[]>(INITIAL_LEVELS);
@@ -14,10 +27,21 @@ export function useLevelProgress() {
       const next = prev.map((l) => ({ ...l }));
       next[index].status = 'completed';
 
-      const nextLevel = next[index + 1];
-      if (nextLevel && nextLevel.status === 'locked') {
-        next[index + 1] = { ...nextLevel, status: 'unlocked' };
-        setRecentlyUnlockedId(nextLevel.id);
+      const toUnlock = UNLOCK_ON_COMPLETE[levelId] ?? [];
+      let unlockedId: string | null = null;
+
+      for (const targetId of toUnlock) {
+        const targetIndex = next.findIndex((l) => l.id === targetId);
+        if (targetIndex < 0) continue;
+        if (next[targetIndex].status !== 'locked') continue;
+        if (!canUnlockLevel(next, targetId)) continue;
+
+        next[targetIndex] = { ...next[targetIndex], status: 'unlocked' };
+        unlockedId = targetId;
+      }
+
+      if (unlockedId) {
+        setRecentlyUnlockedId(unlockedId);
       }
 
       return next;

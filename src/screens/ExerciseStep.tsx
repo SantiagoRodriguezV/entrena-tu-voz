@@ -186,7 +186,7 @@ const styles = StyleSheet.create({
   instruction: {
     fontSize: 17,
     fontWeight: '600',
-    color: colors.textPrimary,
+    color: colors.light,
     textAlign: 'center',
     marginBottom: spacing.lg,
   },
@@ -227,7 +227,7 @@ const styles = StyleSheet.create({
   statusText: {
     flex: 1,
     fontSize: 15,
-    color: colors.textPrimary,
+    color: colors.light,
   },
   timer: {
     fontSize: 18,

@@ -22,5 +22,14 @@ export const BOTTOM_NAV_HEIGHT = 64;
 export const BOTTOM_NAV_SAFE_MARGIN = 50;
 /** Min space between level info panel and bottom nav area */
 export const PANEL_MIN_MARGIN_ABOVE_NAV = 16;
-/** Max gap between level node and info panel */
-export const PANEL_MAX_GAP_BELOW_NODE = 80;
+/** Gap between anchor element and info panel */
+export const PANEL_ANCHOR_GAP = 32;
+
+/** @deprecated use PANEL_ANCHOR_GAP */
+export const PANEL_MAX_GAP_BELOW_NODE = PANEL_ANCHOR_GAP;
+
+/** Top margin below status bar / notch area */
+export const STATUS_BAR_TOP_MARGIN = 40;
+
+/** Horizontal margin for section level panel */
+export const SECTION_PANEL_HORIZONTAL_MARGIN = 48;

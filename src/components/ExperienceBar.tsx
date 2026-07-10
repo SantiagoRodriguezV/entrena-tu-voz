@@ -4,10 +4,11 @@ import Animated, {
   Easing,
   useAnimatedStyle,
   useSharedValue,
+  withSequence,
   withTiming,
 } from 'react-native-reanimated';
 import { UserProgress } from '../audio/xpSystem';
-import { colors } from '../theme/colors';
+import { colors, palette } from '../theme/colors';
 import { borderRadius, spacing } from '../theme/spacing';
 import { fonts, fontSizes } from '../theme/typography';
 
@@ -26,27 +27,64 @@ export function ExperienceBar({
   animate = true,
   compact = false,
 }: ExperienceBarProps) {
-  const fillRatio = useSharedValue(
-    progressBefore.xpInLevel / progressBefore.xpToNextLevel,
+  const beforeRatio = progressBefore.xpInLevel / progressBefore.xpToNextLevel;
+  const afterRatio = progressAfter.xpInLevel / progressAfter.xpToNextLevel;
+  const leveledUp = progressAfter.level > progressBefore.level;
+
+  const priorWidth = useSharedValue(beforeRatio);
+  const earnedWidth = useSharedValue(
+    leveledUp ? afterRatio : Math.max(0, afterRatio - beforeRatio),
   );
 
   useEffect(() => {
-    const target = progressAfter.xpInLevel / progressAfter.xpToNextLevel;
-    if (animate) {
-      fillRatio.value = withTiming(target, {
-        duration: 1200,
+    if (!animate) {
+      priorWidth.value = leveledUp ? 0 : beforeRatio;
+      earnedWidth.value = leveledUp
+        ? afterRatio
+        : Math.max(0, afterRatio - beforeRatio);
+      return;
+    }
+
+    if (leveledUp) {
+      priorWidth.value = beforeRatio;
+      earnedWidth.value = 0;
+      priorWidth.value = withSequence(
+        withTiming(1, { duration: 700, easing: Easing.out(Easing.cubic) }),
+        withTiming(0, { duration: 0 }),
+      );
+      earnedWidth.value = withTiming(afterRatio, {
+        duration: 900,
         easing: Easing.out(Easing.cubic),
       });
-    } else {
-      fillRatio.value = target;
+      return;
     }
-  }, [animate, fillRatio, progressAfter]);
 
-  const fillStyle = useAnimatedStyle(() => ({
-    width: `${Math.min(100, fillRatio.value * 100)}%`,
+    priorWidth.value = beforeRatio;
+    earnedWidth.value = withTiming(Math.max(0, afterRatio - beforeRatio), {
+      duration: 1200,
+      easing: Easing.out(Easing.cubic),
+    });
+  }, [
+    afterRatio,
+    animate,
+    beforeRatio,
+    earnedWidth,
+    leveledUp,
+    priorWidth,
+  ]);
+
+  const priorStyle = useAnimatedStyle(() => ({
+    width: `${Math.min(100, priorWidth.value * 100)}%`,
   }));
 
-  const earnedLeft = `${Math.min(92, (progressAfter.xpInLevel / progressAfter.xpToNextLevel) * 100 - 8)}%`;
+  const earnedStyle = useAnimatedStyle(() => ({
+    left: `${Math.min(100, priorWidth.value * 100)}%`,
+    width: `${Math.min(100 - priorWidth.value * 100, earnedWidth.value * 100)}%`,
+  }));
+
+  const earnedLabelLeft = leveledUp
+    ? `${Math.min(92, afterRatio * 100 - 8)}%`
+    : `${Math.min(92, (beforeRatio + Math.max(0, afterRatio - beforeRatio) / 2) * 100)}%`;
 
   return (
     <View style={[styles.wrapper, compact && styles.wrapperCompact]}>
@@ -55,14 +93,15 @@ export function ExperienceBar({
           {progressBefore.level}
         </Text>
         <Text style={[styles.levelNum, compact && styles.levelNumCompact]}>
-          {progressBefore.level + 1}
+          {progressAfter.level}
         </Text>
       </View>
 
       <View style={[styles.track, compact && styles.trackCompact]}>
-        <Animated.View style={[styles.fill, fillStyle]} />
+        <Animated.View style={[styles.priorFill, priorStyle]} />
+        <Animated.View style={[styles.earnedFill, earnedStyle]} />
         {earnedXp > 0 && !compact && (
-          <Text style={[styles.earnedLabel, { left: earnedLeft as `${number}%` }]}>
+          <Text style={[styles.earnedLabel, { left: earnedLabelLeft as `${number}%` }]}>
             + {earnedXp} XP
           </Text>
         )}
@@ -87,7 +126,7 @@ const styles = StyleSheet.create({
   levelNum: {
     fontFamily: fonts.title,
     fontSize: fontSizes.hero,
-    color: colors.textPrimary,
+    color: colors.light,
   },
   levelNumCompact: {
     fontSize: fontSizes.lg,
@@ -102,12 +141,19 @@ const styles = StyleSheet.create({
   trackCompact: {
     height: 10,
   },
-  fill: {
+  priorFill: {
     position: 'absolute',
     left: 0,
     top: 0,
     bottom: 0,
-    backgroundColor: colors.secondary,
+    backgroundColor: palette.turqShadeMain,
+    borderRadius: borderRadius.pill,
+  },
+  earnedFill: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    backgroundColor: palette.turqLightMain,
     borderRadius: borderRadius.pill,
   },
   earnedLabel: {
@@ -115,6 +161,6 @@ const styles = StyleSheet.create({
     top: -28,
     fontFamily: fonts.title,
     fontSize: fontSizes.md,
-    color: colors.secondary,
+    color: palette.turqLightMain,
   },
 });

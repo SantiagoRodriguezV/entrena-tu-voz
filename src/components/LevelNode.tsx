@@ -1,44 +1,66 @@
-import { Image, LayoutChangeEvent, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useEffect } from 'react';
+import { Pressable, LayoutChangeEvent, Platform, StyleSheet, View } from 'react-native';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
-import { useEffect } from 'react';
-import { Level, LevelCategory, LevelStatus } from '../types/exercise';
-import { colors } from '../theme/colors';
+import PlatformCantoBlocked from '../../assets/icons/platform-canto-blocked.svg';
+import PlatformCantoAvailable from '../../assets/icons/platform-canto-available.svg';
+import PlatformCantoSelected from '../../assets/icons/platform-canto-selected.svg';
+import PlatformCantoCompleted from '../../assets/icons/platform-canto-completed.svg';
+import PlatformExtremoBlocked from '../../assets/icons/platform-extremo-blocked.svg';
+import PlatformExtremoAvailable from '../../assets/icons/platform-extremo-available.svg';
+import PlatformExtremoSelected from '../../assets/icons/platform-extremo-selected.svg';
+import PlatformExtremoCompleted from '../../assets/icons/platform-extremo-completed.svg';
+import { AppIcon } from './AppIcon';
+import { Level, LevelStatus, MapColumn, MapPlatform } from '../types/exercise';
+import { getLevelAccent } from '../theme/colors';
 import { spacing } from '../theme/spacing';
-import { fonts, fontSizes } from '../theme/typography';
 
 type LevelNodeProps = {
   level: Level;
-  align: 'left' | 'right' | 'center';
+  align: MapColumn;
   isSelected?: boolean;
   animateUnlock?: boolean;
   onPress?: () => void;
-  onLayoutMeasured?: (layout: { cx: number; cy: number; bottom: number }) => void;
+  onLayoutMeasured?: (layout: { cx: number; cy: number; top: number; bottom: number }) => void;
 };
 
-const platformCantoBlocked = require('../../assets/images/platform-canto-blocked.png');
-const platformCantoAvailable = require('../../assets/images/platform-canto-available.png');
-const platformCantoSelected = require('../../assets/images/platform-canto-selected.png');
-const platformExtremoBlocked = require('../../assets/images/platform-extremo-blocked.png');
-const platformExtremoAvailable = require('../../assets/images/platform-extremo-available.png');
-const platformExtremoSelected = require('../../assets/images/platform-extremo-selected.png');
+const PLATFORM_WIDTH = 110;
+const PLATFORM_HEIGHT = 70;
+const PLATFORM_ICON_WIDTH = 110;
+const PLATFORM_ICON_HEIGHT = 60;
 
-function getPlatformImages(category: LevelCategory, status: LevelStatus) {
-  const isCanto = category === 'canto';
+type PlatformIcon = typeof PlatformCantoBlocked;
+
+function getPlatformIcon(
+  platform: MapPlatform,
+  status: LevelStatus,
+  isSelected: boolean,
+): PlatformIcon {
+  const isExtremo = platform === 'extremo';
+
   if (status === 'locked') {
-    return {
-      base: isCanto ? platformCantoBlocked : platformExtremoBlocked,
-      selected: null as number | null,
-    };
+    return isExtremo ? PlatformExtremoBlocked : PlatformCantoBlocked;
   }
-  return {
-    base: isCanto ? platformCantoAvailable : platformExtremoAvailable,
-    selected: isCanto ? platformCantoSelected : platformExtremoSelected,
-  };
+
+  if (status === 'completed') {
+    return isExtremo ? PlatformExtremoCompleted : PlatformCantoCompleted;
+  }
+
+  if (isSelected) {
+    return isExtremo ? PlatformExtremoSelected : PlatformCantoSelected;
+  }
+
+  return isExtremo ? PlatformExtremoAvailable : PlatformCantoAvailable;
+}
+
+function getAlignStyle(align: MapColumn) {
+  if (align === 'left') return styles.alignLeft;
+  if (align === 'right') return styles.alignRight;
+  return styles.alignCenter;
 }
 
 export function LevelNode({
@@ -49,15 +71,14 @@ export function LevelNode({
   onPress,
   onLayoutMeasured,
 }: LevelNodeProps) {
-  const isLocked = level.status === 'locked';
-  const isCompleted = level.status === 'completed';
-  const isTappable = !isLocked && onPress;
-  const showSelectionOverlay = level.status === 'unlocked' && isSelected;
+  const isTappable = Boolean(onPress);
+  const showSelection = level.status === 'unlocked' && isSelected;
+  const accent = getLevelAccent(level.category);
+  const PlatformIconComponent = getPlatformIcon(level.platform, level.status, showSelection);
 
   const scale = useSharedValue(animateUnlock ? 0.8 : 1);
   const opacity = useSharedValue(animateUnlock ? 0 : 1);
-  const selectedOpacity = useSharedValue(showSelectionOverlay ? 1 : 0);
-  const platformScale = useSharedValue(showSelectionOverlay ? 1.04 : 1);
+  const platformScale = useSharedValue(showSelection ? 1.08 : 1);
 
   useEffect(() => {
     if (animateUnlock) {
@@ -67,14 +88,10 @@ export function LevelNode({
   }, [animateUnlock, opacity, scale]);
 
   useEffect(() => {
-    if (showSelectionOverlay) {
-      selectedOpacity.value = withTiming(1, { duration: 250 });
-      platformScale.value = withTiming(1.04, { duration: 250 });
-    } else {
-      selectedOpacity.value = withTiming(0, { duration: 200 });
-      platformScale.value = withTiming(1, { duration: 200 });
-    }
-  }, [platformScale, selectedOpacity, showSelectionOverlay]);
+    platformScale.value = withTiming(showSelection ? 1.08 : 1, {
+      duration: showSelection ? 250 : 200,
+    });
+  }, [platformScale, showSelection]);
 
   const unlockStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
@@ -85,52 +102,36 @@ export function LevelNode({
     transform: [{ scale: platformScale.value }],
   }));
 
-  const selectedOverlayStyle = useAnimatedStyle(() => ({
-    opacity: selectedOpacity.value,
-  }));
-
-  const { base, selected } = getPlatformImages(level.category, level.status);
-
   const handleLayout = (event: LayoutChangeEvent) => {
     const { x, y, width, height } = event.nativeEvent.layout;
     onLayoutMeasured?.({
       cx: x + width / 2,
       cy: y + height / 2,
+      top: y,
       bottom: y + height,
     });
   };
 
-  const content = (
+  const platformContent = (
     <Animated.View
-      onLayout={handleLayout}
       style={[
-        styles.wrapper,
-        align === 'left' && styles.alignLeft,
-        align === 'right' && styles.alignRight,
-        align === 'center' && styles.alignCenter,
-        isLocked && styles.locked,
+        styles.platformStack,
+        platformAnimStyle,
         unlockStyle,
+        showSelection && [
+          styles.selectedRing,
+          { shadowColor: accent.accent },
+        ],
       ]}
     >
-      <Animated.View style={[styles.platformStack, platformAnimStyle]}>
-        <Image source={base} style={styles.platformImage} resizeMode="contain" />
-        {selected !== null && (
-          <Animated.View style={[styles.selectedOverlay, selectedOverlayStyle]}>
-            <Image source={selected} style={styles.platformImage} resizeMode="contain" />
-          </Animated.View>
-        )}
-        <Text style={styles.mapNumber}>{level.mapNumber}</Text>
-        {isCompleted && (
-          <View style={styles.checkBadge}>
-            <Text style={styles.checkText}>✓</Text>
-          </View>
-        )}
-        {isLocked && (
-          <View style={styles.lockBadge}>
-            <Text style={styles.lockText}>🔒</Text>
-          </View>
-        )}
-      </Animated.View>
+      <View style={styles.platformImage}>
+        <AppIcon
+          icon={PlatformIconComponent}
+          size={PLATFORM_ICON_HEIGHT}
+          width={PLATFORM_ICON_WIDTH}
+          height={PLATFORM_ICON_HEIGHT}
+        />
+      </View>
     </Animated.View>
   );
 
@@ -138,95 +139,73 @@ export function LevelNode({
     return (
       <Pressable
         onPress={onPress}
+        onLayout={handleLayout}
         accessibilityRole="button"
-        accessibilityLabel={`Nivel ${level.mapNumber}, ${level.title}`}
-        style={({ pressed }) => [pressed && styles.pressed]}
+        accessibilityLabel={`${level.displayCode}, ${level.title}`}
+        style={({ pressed }) => [
+          styles.hitArea,
+          getAlignStyle(align),
+          pressed && styles.pressed,
+          Platform.OS === 'web' && styles.webHitArea,
+        ]}
       >
-        {content}
+        {platformContent}
       </Pressable>
     );
   }
 
-  return content;
+  return (
+    <View
+      onLayout={handleLayout}
+      style={[styles.hitArea, getAlignStyle(align)]}
+    >
+      {platformContent}
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({
-  wrapper: {
-    width: 110,
-    alignItems: 'center',
+  hitArea: {
+    width: PLATFORM_WIDTH,
+    height: PLATFORM_HEIGHT,
     marginVertical: spacing.sm,
+    backgroundColor: 'transparent',
   },
   alignLeft: {
     alignSelf: 'flex-start',
-    marginLeft: spacing.xl,
+    marginLeft: spacing.md,
   },
   alignRight: {
     alignSelf: 'flex-end',
-    marginRight: spacing.xl,
+    marginRight: spacing.md,
   },
   alignCenter: {
     alignSelf: 'center',
   },
-  locked: {
-    opacity: 0.45,
-  },
+  webHitArea: {
+    cursor: 'pointer',
+    outlineStyle: 'none',
+  } as object,
   pressed: {
     opacity: 0.85,
-    transform: [{ scale: 0.97 }],
   },
   platformStack: {
-    width: 110,
-    height: 70,
+    width: PLATFORM_WIDTH,
+    height: PLATFORM_HEIGHT,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  selectedRing: {
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.6,
+    shadowRadius: 8,
+    elevation: 6,
   },
   platformImage: {
-    width: 110,
-    height: 60,
+    width: PLATFORM_ICON_WIDTH,
+    height: PLATFORM_ICON_HEIGHT,
     position: 'absolute',
-  },
-  selectedOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  mapNumber: {
-    fontFamily: fonts.title,
-    fontSize: fontSizes.xl,
-    color: '#FFFFFF',
-    textShadowColor: 'rgba(0,0,0,0.45)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 3,
-    zIndex: 2,
-    marginTop: -4,
-  },
-  checkBadge: {
-    position: 'absolute',
-    top: 0,
-    right: 4,
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    backgroundColor: colors.secondary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 3,
-  },
-  checkText: {
-    color: '#FFF',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  lockBadge: {
-    position: 'absolute',
-    top: 6,
-    zIndex: 3,
-  },
-  lockText: {
-    fontSize: 16,
   },
 });

@@ -21,6 +21,7 @@ type ExerciseListenScreenProps = {
   vocalFrame: VocalFrame | null;
   micReady: boolean;
   onStartExercise: () => void;
+  onBack: () => void;
 };
 
 type Phase = 'intro' | 'playing' | 'readyToSing';
@@ -32,6 +33,7 @@ export function ExerciseListenScreen({
   vocalFrame,
   micReady,
   onStartExercise,
+  onBack,
 }: ExerciseListenScreenProps) {
   const [phase, setPhase] = useState<Phase>('intro');
   const [illuminatedNoteId, setIlluminatedNoteId] = useState<string | null>(null);
@@ -118,6 +120,7 @@ export function ExerciseListenScreen({
       lessonTitle={lessonTitle}
       vowelLabel={vowelLabel}
       hint={hint}
+      onBack={onBack}
       footer={
         <View style={styles.footer}>
           {phase === 'intro' ? (

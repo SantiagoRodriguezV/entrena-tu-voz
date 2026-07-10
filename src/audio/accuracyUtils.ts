@@ -65,3 +65,10 @@ export function countCorrectNotes(
 ): number {
   return performances.filter((p) => p.finalScore >= threshold).length;
 }
+
+export function countNotesAboveAccuracy(
+  performances: { finalScore: number }[],
+  threshold = 0.75,
+): number {
+  return performances.filter((p) => p.finalScore >= threshold).length;
+}

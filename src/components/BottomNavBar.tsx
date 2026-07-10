@@ -1,4 +1,13 @@
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import NavMenuActive from '../../assets/icons/nav-menu-active.svg';
+import NavMenuInactive from '../../assets/icons/nav-menu-inactive.svg';
+import NavAprendeActive from '../../assets/icons/nav-aprende-active.svg';
+import NavAprendeInactive from '../../assets/icons/nav-aprende-inactive.svg';
+import NavEntrenaActive from '../../assets/icons/nav-entrena-active.svg';
+import NavEntrenaInactive from '../../assets/icons/nav-entrena-inactive.svg';
+import NavDesafiosActive from '../../assets/icons/nav-desafios-active.svg';
+import NavDesafiosInactive from '../../assets/icons/nav-desafios-inactive.svg';
+import { AppIcon } from './AppIcon';
 import { MainTab } from '../types/exercise';
 import { BOTTOM_NAV_SAFE_MARGIN } from '../theme/spacing';
 import { fonts } from '../theme/typography';
@@ -9,34 +18,40 @@ type BottomNavBarProps = {
 };
 
 const NAV_HORIZONTAL_MARGIN = 64;
+const ICON_SIZE = 48;
 const LABEL_FONT_SIZE = 8;
 const LABEL_LINE_HEIGHT = LABEL_FONT_SIZE * 1.2;
 const LABEL_LETTER_SPACING = LABEL_FONT_SIZE * 0.1;
 
-const tabs: { id: MainTab; active: number; inactive: number; label: string }[] = [
+const tabs: {
+  id: MainTab;
+  active: typeof NavMenuActive;
+  inactive: typeof NavMenuInactive;
+  label: string;
+}[] = [
   {
-    id: 'desafios',
-    active: require('../../assets/images/nav-desafios-active.png'),
-    inactive: require('../../assets/images/nav-desafios-inactive.png'),
-    label: 'Desafíos',
+    id: 'menu',
+    active: NavMenuActive,
+    inactive: NavMenuInactive,
+    label: 'Menú',
   },
   {
     id: 'aprende',
-    active: require('../../assets/images/nav-aprende-active.png'),
-    inactive: require('../../assets/images/nav-aprende-inactive.png'),
+    active: NavAprendeActive,
+    inactive: NavAprendeInactive,
     label: 'Aprende',
   },
   {
     id: 'entrena',
-    active: require('../../assets/images/nav-entrena-active.png'),
-    inactive: require('../../assets/images/nav-entrena-inactive.png'),
+    active: NavEntrenaActive,
+    inactive: NavEntrenaInactive,
     label: 'Entrena',
   },
   {
-    id: 'perfil',
-    active: require('../../assets/images/nav-perfil-active.png'),
-    inactive: require('../../assets/images/nav-perfil-inactive.png'),
-    label: 'Perfil',
+    id: 'desafios',
+    active: NavDesafiosActive,
+    inactive: NavDesafiosInactive,
+    label: 'Desafíos',
   },
 ];
 
@@ -54,10 +69,9 @@ export function BottomNavBar({ activeTab, onTabChange }: BottomNavBarProps) {
             accessibilityLabel={tab.label}
             accessibilityState={{ selected: isActive }}
           >
-            <Image
-              source={isActive ? tab.active : tab.inactive}
-              style={styles.icon}
-              resizeMode="contain"
+            <AppIcon
+              icon={isActive ? tab.active : tab.inactive}
+              size={ICON_SIZE}
             />
             <Text style={[styles.label, isActive && styles.labelActive]}>{tab.label}</Text>
           </Pressable>
@@ -83,10 +97,6 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'flex-start',
-  },
-  icon: {
-    width: 48,
-    height: 48,
   },
   label: {
     fontFamily: fonts.title,

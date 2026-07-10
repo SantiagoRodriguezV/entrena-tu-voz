@@ -14,7 +14,7 @@ import { spacing } from '../theme/spacing';
 type ScreenLayoutProps = {
   children: ReactNode;
   scrollable?: boolean;
-  variant?: 'dark' | 'light';
+  variant?: 'dark' | 'light' | 'completion';
   style?: ViewStyle;
 };
 
@@ -24,7 +24,12 @@ export function ScreenLayout({
   variant = 'dark',
   style,
 }: ScreenLayoutProps) {
-  const bgColor = variant === 'dark' ? colors.background : colors.backgroundLight;
+  const bgColor =
+    variant === 'completion'
+      ? colors.backgroundCompletion
+      : variant === 'dark'
+        ? colors.background
+        : colors.backgroundLight;
 
   const content = scrollable ? (
     <ScrollView

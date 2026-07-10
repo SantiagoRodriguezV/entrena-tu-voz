@@ -1,74 +1,71 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { RefObject, useCallback, useEffect, useRef, useState } from 'react';
 import {
+  Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
-  useWindowDimensions,
   View,
 } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import Animated, {
+  interpolateColor,
   useAnimatedProps,
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
+import { getMaxMapRow } from '../data/levels';
+import { MAP_EDGES } from '../data/mapEdges';
 import { Level, NodeLayoutMetrics } from '../types/exercise';
-import { LevelInfoPanel } from './LevelInfoPanel';
+import { getLevelAccent } from '../theme/colors';
+import { LevelInfoPanel, PANEL_WIDTH_BASE } from './LevelInfoPanel';
 import { LevelNode } from './LevelNode';
+import { useResponsive } from '../theme/responsive';
 import {
   BOTTOM_NAV_HEIGHT,
   BOTTOM_NAV_SAFE_MARGIN,
-  PANEL_MAX_GAP_BELOW_NODE,
+  PANEL_ANCHOR_GAP,
   PANEL_MIN_MARGIN_ABOVE_NAV,
   spacing,
 } from '../theme/spacing';
 
-const AnimatedPath = Animated.createAnimatedComponent(Path);
+const AnimatedPath = Platform.OS === 'web' ? Path : Animated.createAnimatedComponent(Path);
 
-type ProgressMapProps = {
-  levels: Level[];
-  selectedLevel: Level | null;
-  recentlyUnlockedId: string | null;
-  onSelectLevel: (level: Level) => void;
-  onContinueLevel: () => void;
-  onUnlockAnimationEnd?: () => void;
-};
-
-export const NODE_HEIGHT = 168;
-const PATH_WIDTH = 280;
-const UNLOCKED_PATH_COLOR = '#0D6E74';
+export const NODE_HEIGHT_BASE = 168;
+export const PATH_WIDTH_BASE = 340;
+/** @deprecated use PATH_WIDTH_BASE with useResponsive */
+export const NODE_HEIGHT = NODE_HEIGHT_BASE;
+/** @deprecated use PATH_WIDTH_BASE with useResponsive */
+export const PATH_WIDTH = PATH_WIDTH_BASE;
 const LOCKED_PATH_COLOR = '#3A3A3A';
 const ESTIMATED_PANEL_HEIGHT = 260;
 
-function getAlignment(index: number): 'left' | 'right' | 'center' {
-  if (index % 3 === 0) return 'center';
-  if (index % 2 === 0) return 'right';
-  return 'left';
-}
-
-function isSegmentUnlocked(levels: Level[], segmentIndex: number): boolean {
-  const to = levels[segmentIndex + 1];
-  return to?.status !== 'locked';
+function buildDownwardPath(from: NodeLayoutMetrics, to: NodeLayoutMetrics): string {
+  const midY = from.bottom + Math.max(16, (to.top - from.bottom) * 0.45);
+  return [
+    `M ${from.cx} ${from.bottom}`,
+    `L ${from.cx} ${midY}`,
+    `L ${to.cx} ${midY}`,
+    `L ${to.cx} ${to.top}`,
+  ].join(' ');
 }
 
 type ConnectorSegmentProps = {
-  index: number;
-  levels: Level[];
-  nodeLayouts: Record<string, NodeLayoutMetrics>;
+  edgeKey: string;
+  fromLayout: NodeLayoutMetrics;
+  toLayout: NodeLayoutMetrics;
+  targetUnlocked: boolean;
   animateUnlock: boolean;
+  unlockedColor: string;
 };
 
 function ConnectorSegment({
-  index,
-  levels,
-  nodeLayouts,
+  edgeKey,
+  fromLayout,
+  toLayout,
+  targetUnlocked,
   animateUnlock,
+  unlockedColor,
 }: ConnectorSegmentProps) {
-  const from = levels[index];
-  const to = levels[index + 1];
-  const fromLayout = from ? nodeLayouts[from.id] : undefined;
-  const toLayout = to ? nodeLayouts[to.id] : undefined;
-
-  const targetUnlocked = isSegmentUnlocked(levels, index);
   const progress = useSharedValue(targetUnlocked && !animateUnlock ? 1 : 0);
 
   useEffect(() => {
@@ -80,25 +77,33 @@ function ConnectorSegment({
   }, [animateUnlock, progress, targetUnlocked]);
 
   const animatedProps = useAnimatedProps(() => {
-    const t = progress.value;
-    const r1 = parseInt(UNLOCKED_PATH_COLOR.slice(1, 3), 16);
-    const g1 = parseInt(UNLOCKED_PATH_COLOR.slice(3, 5), 16);
-    const b1 = parseInt(UNLOCKED_PATH_COLOR.slice(5, 7), 16);
-    const r2 = parseInt(LOCKED_PATH_COLOR.slice(1, 3), 16);
-    const g2 = parseInt(LOCKED_PATH_COLOR.slice(3, 5), 16);
-    const b2 = parseInt(LOCKED_PATH_COLOR.slice(5, 7), 16);
-    const r = Math.round(r2 + (r1 - r2) * t);
-    const g = Math.round(g2 + (g1 - g2) * t);
-    const b = Math.round(b2 + (b1 - b2) * t);
-    return { stroke: `rgb(${r}, ${g}, ${b})` };
+    'worklet';
+    if (!targetUnlocked) {
+      return { stroke: LOCKED_PATH_COLOR };
+    }
+    return {
+      stroke: interpolateColor(progress.value, [0, 1], [LOCKED_PATH_COLOR, unlockedColor]),
+    };
   });
 
-  if (!fromLayout || !toLayout) return null;
+  const d = buildDownwardPath(fromLayout, toLayout);
 
-  const d = `M ${fromLayout.cx} ${fromLayout.cy} L ${toLayout.cx} ${toLayout.cy}`;
+  if (Platform.OS === 'web') {
+    return (
+      <Path
+        key={edgeKey}
+        d={d}
+        strokeWidth={4}
+        fill="none"
+        strokeLinecap="round"
+        stroke={targetUnlocked ? unlockedColor : LOCKED_PATH_COLOR}
+      />
+    );
+  }
 
   return (
     <AnimatedPath
+      key={edgeKey}
       d={d}
       strokeWidth={4}
       fill="none"
@@ -108,39 +113,57 @@ function ConnectorSegment({
   );
 }
 
+type ProgressMapProps = {
+  levels: Level[];
+  selectedLevel: Level | null;
+  recentlyUnlockedId: string | null;
+  onSelectLevel: (level: Level) => void;
+  onContinueLevel: () => void;
+  onDismiss: () => void;
+  onUnlockAnimationEnd?: () => void;
+  embedInParentScroll?: boolean;
+  parentScrollRef?: RefObject<ScrollView | null>;
+  sectionOffsetY?: number;
+  disableInitialScroll?: boolean;
+};
+
 export function ProgressMap({
   levels,
   selectedLevel,
   recentlyUnlockedId,
   onSelectLevel,
   onContinueLevel,
+  onDismiss,
   onUnlockAnimationEnd,
+  embedInParentScroll = false,
+  parentScrollRef,
+  sectionOffsetY = 0,
+  disableInitialScroll = false,
 }: ProgressMapProps) {
-  const scrollRef = useRef<ScrollView>(null);
-  const { height: windowHeight } = useWindowDimensions();
+  const internalScrollRef = useRef<ScrollView>(null);
+  const scrollRef = embedInParentScroll ? parentScrollRef : internalScrollRef;
+  const { height: windowHeight, moderateScale } = useResponsive();
+  const pathWidth = moderateScale(PATH_WIDTH_BASE);
+  const nodeHeight = moderateScale(NODE_HEIGHT_BASE);
+  const mapTopOffset = moderateScale(72);
   const [nodeLayouts, setNodeLayouts] = useState<Record<string, NodeLayoutMetrics>>({});
   const hasScrolledRef = useRef(false);
 
-  const mapHeight = levels.length * NODE_HEIGHT + spacing.xxl;
+  const maxRow = getMaxMapRow(levels);
+  const mapHeight = mapTopOffset + (maxRow + 1) * nodeHeight + spacing.xxl;
   const panelAnchor = selectedLevel ? nodeLayouts[selectedLevel.id] : undefined;
 
   const navReserved =
     BOTTOM_NAV_HEIGHT + BOTTOM_NAV_SAFE_MARGIN + PANEL_MIN_MARGIN_ABOVE_NAV;
 
-  const panelTop = panelAnchor
-    ? (() => {
-        const gap = PANEL_MAX_GAP_BELOW_NODE;
-        let top = panelAnchor.bottom + gap;
-        const maxTop =
-          mapHeight -
-          ESTIMATED_PANEL_HEIGHT -
-          (PANEL_MIN_MARGIN_ABOVE_NAV + BOTTOM_NAV_SAFE_MARGIN);
-        if (top > maxTop) {
-          top = Math.max(panelAnchor.bottom + 16, maxTop);
-        }
-        return top;
-      })()
-    : 0;
+  const panelTop = panelAnchor ? panelAnchor.bottom + PANEL_ANCHOR_GAP : 0;
+
+  const scrollToY = useCallback(
+    (y: number, animated = true) => {
+      scrollRef?.current?.scrollTo({ y, animated });
+    },
+    [scrollRef],
+  );
 
   const handleNodeLayout = useCallback((levelId: string, layout: NodeLayoutMetrics) => {
     setNodeLayouts((prev) => {
@@ -149,6 +172,7 @@ export function ProgressMap({
         existing &&
         existing.cx === layout.cx &&
         existing.cy === layout.cy &&
+        existing.top === layout.top &&
         existing.bottom === layout.bottom
       ) {
         return prev;
@@ -158,102 +182,166 @@ export function ProgressMap({
   }, []);
 
   useEffect(() => {
-    if (hasScrolledRef.current) return;
-    const unlockedIndex = levels.findIndex((l) => l.status === 'unlocked');
-    if (unlockedIndex < 0) return;
+    if (disableInitialScroll || hasScrolledRef.current) return;
+    const c1 = levels.find((l) => l.id === 'c1');
+    if (!c1) return;
 
-    const targetY = Math.max(0, unlockedIndex * NODE_HEIGHT - NODE_HEIGHT * 0.5);
+    const innerY = Math.max(0, mapTopOffset + c1.mapRow * nodeHeight - nodeHeight * 0.25);
+    const targetY = embedInParentScroll ? sectionOffsetY + innerY : innerY;
     const timeout = setTimeout(() => {
-      scrollRef.current?.scrollTo({ y: targetY, animated: true });
+      scrollToY(targetY, true);
       hasScrolledRef.current = true;
     }, 300);
     return () => clearTimeout(timeout);
-  }, [levels]);
+  }, [disableInitialScroll, embedInParentScroll, levels, mapTopOffset, nodeHeight, scrollToY, sectionOffsetY]);
 
   useEffect(() => {
     if (!recentlyUnlockedId) return;
-    const index = levels.findIndex((l) => l.id === recentlyUnlockedId);
-    if (index < 0) return;
+    const level = levels.find((l) => l.id === recentlyUnlockedId);
+    if (!level) return;
 
-    const targetY = Math.max(0, index * NODE_HEIGHT - NODE_HEIGHT * 0.5);
-    scrollRef.current?.scrollTo({ y: targetY, animated: true });
+    const innerY = Math.max(0, mapTopOffset + level.mapRow * nodeHeight - nodeHeight * 0.5);
+    scrollToY(embedInParentScroll ? sectionOffsetY + innerY : innerY, true);
 
     const timer = setTimeout(() => onUnlockAnimationEnd?.(), 700);
     return () => clearTimeout(timer);
-  }, [levels, onUnlockAnimationEnd, recentlyUnlockedId]);
+  }, [
+    embedInParentScroll,
+    levels,
+    mapTopOffset,
+    nodeHeight,
+    onUnlockAnimationEnd,
+    recentlyUnlockedId,
+    scrollToY,
+    sectionOffsetY,
+  ]);
 
   useEffect(() => {
     if (!selectedLevel || !panelAnchor) return;
-    const scrollTarget = Math.max(
+    const innerTarget = Math.max(
       0,
       panelTop + ESTIMATED_PANEL_HEIGHT + navReserved - windowHeight,
     );
-    scrollRef.current?.scrollTo({ y: scrollTarget, animated: true });
-  }, [navReserved, panelAnchor, panelTop, selectedLevel, windowHeight]);
+    scrollToY(embedInParentScroll ? sectionOffsetY + innerTarget : innerTarget, true);
+  }, [
+    embedInParentScroll,
+    navReserved,
+    panelAnchor,
+    panelTop,
+    scrollToY,
+    sectionOffsetY,
+    selectedLevel,
+    windowHeight,
+  ]);
 
-  const contentPaddingBottom =
-    BOTTOM_NAV_HEIGHT +
-    BOTTOM_NAV_SAFE_MARGIN +
-    PANEL_MIN_MARGIN_ABOVE_NAV +
-    (selectedLevel ? ESTIMATED_PANEL_HEIGHT : spacing.xxl);
+  const contentPaddingBottom = embedInParentScroll
+    ? selectedLevel
+      ? ESTIMATED_PANEL_HEIGHT + spacing.lg
+      : spacing.lg
+    : BOTTOM_NAV_HEIGHT +
+      BOTTOM_NAV_SAFE_MARGIN +
+      PANEL_MIN_MARGIN_ABOVE_NAV +
+      (selectedLevel ? ESTIMATED_PANEL_HEIGHT : spacing.xxl);
+
+  const levelById = Object.fromEntries(levels.map((l) => [l.id, l]));
+
+  const mapContent = (
+    <View
+      style={[
+        styles.mapContainer,
+        { height: mapHeight, width: pathWidth, paddingBottom: embedInParentScroll ? contentPaddingBottom : 0 },
+      ]}
+    >
+      <Svg width={pathWidth} height={mapHeight} style={styles.svg} pointerEvents="none">
+        {MAP_EDGES.map((edge) => {
+          const fromLayout = nodeLayouts[edge.from];
+          const toLayout = nodeLayouts[edge.to];
+          if (!fromLayout || !toLayout) return null;
+
+          const toLevel = levelById[edge.to];
+          const targetUnlocked = toLevel?.status !== 'locked';
+          const animatesUnlock = recentlyUnlockedId === edge.to;
+          const unlockedColor = toLevel
+            ? getLevelAccent(toLevel.category).border
+            : getLevelAccent('canto').border;
+
+          return (
+            <ConnectorSegment
+              key={`${edge.from}-${edge.to}`}
+              edgeKey={`${edge.from}-${edge.to}`}
+              fromLayout={fromLayout}
+              toLayout={toLayout}
+              targetUnlocked={targetUnlocked}
+              animateUnlock={animatesUnlock}
+              unlockedColor={unlockedColor}
+            />
+          );
+        })}
+      </Svg>
+
+      {selectedLevel && (
+        <Pressable
+          style={[styles.dismissOverlay, embedInParentScroll && styles.dismissOverlayEmbedded]}
+          onPress={onDismiss}
+          accessibilityRole="button"
+          accessibilityLabel="Cerrar panel"
+        />
+      )}
+
+      {levels.map((level) => (
+        <View
+          key={level.id}
+          style={[
+            styles.nodeRow,
+            embedInParentScroll && styles.nodeRowEmbedded,
+            { top: mapTopOffset + level.mapRow * nodeHeight },
+          ]}
+          pointerEvents="box-none"
+        >
+          <LevelNode
+            level={level}
+            align={level.mapColumn}
+            isSelected={selectedLevel?.id === level.id}
+            animateUnlock={recentlyUnlockedId === level.id}
+            onLayoutMeasured={(layout) =>
+              handleNodeLayout(level.id, {
+                cx: layout.cx,
+                cy: layout.cy + mapTopOffset + level.mapRow * nodeHeight,
+                top: layout.top + mapTopOffset + level.mapRow * nodeHeight,
+                bottom: layout.bottom + mapTopOffset + level.mapRow * nodeHeight,
+              })
+            }
+            onPress={() => onSelectLevel(level)}
+          />
+        </View>
+      ))}
+
+      {selectedLevel && panelAnchor && (
+        <LevelInfoPanel
+          level={selectedLevel}
+          anchor={panelAnchor}
+          mapWidth={pathWidth}
+          onContinue={onContinueLevel}
+          embedded={embedInParentScroll}
+        />
+      )}
+    </View>
+  );
+
+  if (embedInParentScroll) {
+    return mapContent;
+  }
 
   return (
     <View style={styles.flex}>
       <ScrollView
-        ref={scrollRef}
+        ref={internalScrollRef}
         style={styles.scroll}
         contentContainerStyle={[styles.content, { paddingBottom: contentPaddingBottom }]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        <View style={[styles.mapContainer, { height: mapHeight }]}>
-          <Svg
-            width={PATH_WIDTH}
-            height={mapHeight}
-            style={styles.svg}
-            pointerEvents="none"
-          >
-            {levels.slice(0, -1).map((_, index) => {
-              const animatesUnlock =
-                recentlyUnlockedId !== null &&
-                levels[index + 1]?.id === recentlyUnlockedId;
-              return (
-                <ConnectorSegment
-                  key={`path-${index}`}
-                  index={index}
-                  levels={levels}
-                  nodeLayouts={nodeLayouts}
-                  animateUnlock={animatesUnlock}
-                />
-              );
-            })}
-          </Svg>
-
-          {levels.map((level, index) => (
-            <View key={level.id} style={[styles.nodeRow, { top: index * NODE_HEIGHT }]}>
-              <LevelNode
-                level={level}
-                align={getAlignment(index)}
-                isSelected={selectedLevel?.id === level.id}
-                animateUnlock={recentlyUnlockedId === level.id}
-                onLayoutMeasured={(layout) => handleNodeLayout(level.id, layout)}
-                onPress={
-                  level.status !== 'locked'
-                    ? () => onSelectLevel(level)
-                    : undefined
-                }
-              />
-            </View>
-          ))}
-
-          {selectedLevel && panelAnchor && (
-            <LevelInfoPanel
-              level={selectedLevel}
-              top={panelTop}
-              onContinue={onContinueLevel}
-            />
-          )}
-        </View>
+        {mapContent}
       </ScrollView>
     </View>
   );
@@ -271,18 +359,43 @@ const styles = StyleSheet.create({
   },
   mapContainer: {
     alignSelf: 'center',
-    width: PATH_WIDTH,
     position: 'relative',
   },
   svg: {
     position: 'absolute',
     left: 0,
     top: 0,
+    zIndex: 1,
   },
   nodeRow: {
     position: 'absolute',
     left: 0,
     right: 0,
     alignItems: 'center',
+    zIndex: 20,
+    elevation: 20,
+  },
+  nodeRowEmbedded: {
+    zIndex: 8,
+    elevation: 8,
+  },
+  dismissOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 15,
+  },
+  dismissOverlayEmbedded: {
+    zIndex: 6,
+    elevation: 6,
   },
 });
+
+export { PANEL_WIDTH_BASE as PANEL_WIDTH };
+
+export function getProgressMapHeight(levels: Level[], scale = 1): number {
+  const maxRow = getMaxMapRow(levels);
+  return (maxRow + 1) * NODE_HEIGHT_BASE * scale + spacing.xxl + spacing.lg;
+}

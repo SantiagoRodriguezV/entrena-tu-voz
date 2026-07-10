@@ -1,8 +1,10 @@
 import { ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { ExerciseBackHeader } from '../ExerciseBackHeader';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
-import { fonts, fontSizes } from '../../theme/typography';
+import { fonts, exerciseTitleType, fontSizes } from '../../theme/typography';
+import { useResponsive } from '../../theme/responsive';
 
 type WarmupExerciseShellProps = {
   lessonTitle: string;
@@ -12,6 +14,7 @@ type WarmupExerciseShellProps = {
   score?: number;
   showPause?: boolean;
   onPause?: () => void;
+  onBack?: () => void;
   footer?: ReactNode;
 };
 
@@ -23,42 +26,57 @@ export function WarmupExerciseShell({
   score,
   showPause = false,
   onPause,
+  onBack,
   footer,
 }: WarmupExerciseShellProps) {
+  const { width, height, moderateScale } = useResponsive();
+  const isLandscape = width > height;
+  const controlSize = moderateScale(isLandscape ? 36 : 40);
+
   return (
-    <View style={styles.root}>
-      <View style={styles.header}>
+    <View style={[styles.root, isLandscape && styles.rootLandscape]}>
+      <View style={[styles.header, isLandscape && styles.headerLandscape]}>
+        {onBack ? (
+          <ExerciseBackHeader onConfirmBack={onBack} />
+        ) : (
+          <View style={[styles.controlPlaceholder, { width: controlSize, height: controlSize }]} />
+        )}
         {showPause ? (
           <Pressable
             onPress={onPause}
             accessibilityRole="button"
             accessibilityLabel="Pausar"
-            style={({ pressed }) => [styles.pauseButton, pressed && styles.pressed]}
+            style={({ pressed }) => [
+              styles.pauseButton,
+              { width: controlSize, height: controlSize },
+              pressed && styles.pressed,
+            ]}
           >
             <View style={styles.pauseBar} />
             <View style={styles.pauseBar} />
           </Pressable>
         ) : (
-          <View style={styles.pausePlaceholder} />
+          <View style={[styles.controlPlaceholder, { width: controlSize, height: controlSize }]} />
         )}
         <Text style={styles.lessonTitle}>{lessonTitle}</Text>
       </View>
 
       <Text style={styles.vowel}>{vowelLabel}</Text>
 
-      {hint ? <Text style={styles.hint}>{hint}</Text> : null}
+      {hint ? (
+        <Text style={[styles.hint, isLandscape && styles.hintLandscape]}>{hint}</Text>
+      ) : null}
 
-      <View style={styles.band}>{children}</View>
+      <View style={[styles.band, isLandscape && styles.bandLandscape]}>{children}</View>
 
-      <View style={styles.footer}>
-        {footer ?? (
-          score !== undefined ? (
+      <View style={[styles.footer, isLandscape && styles.footerLandscape]}>
+        {footer ??
+          (score !== undefined ? (
             <View style={styles.scoreRow}>
               <Text style={styles.scoreIcon}>♪</Text>
               <Text style={styles.scoreValue}>{score}</Text>
             </View>
-          ) : null
-        )}
+          ) : null)}
       </View>
     </View>
   );
@@ -72,30 +90,35 @@ const styles = StyleSheet.create({
     paddingTop: spacing.sm,
     paddingBottom: spacing.md,
   },
+  rootLandscape: {
+    paddingTop: spacing.xs,
+    paddingBottom: spacing.xs,
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.md,
+    gap: spacing.sm,
     marginBottom: spacing.xs,
   },
-  pausePlaceholder: {
-    width: 40,
-    height: 40,
+  headerLandscape: {
+    marginBottom: 2,
+  },
+  controlPlaceholder: {
+    flexShrink: 0,
   },
   pauseButton: {
-    width: 40,
-    height: 40,
     borderRadius: 10,
     backgroundColor: '#3A3A3A',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 5,
+    flexShrink: 0,
   },
   pauseBar: {
     width: 4,
     height: 16,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.light,
     borderRadius: 1,
   },
   pressed: {
@@ -103,14 +126,18 @@ const styles = StyleSheet.create({
   },
   lessonTitle: {
     fontFamily: fonts.title,
-    fontSize: fontSizes.lg,
+    fontSize: exerciseTitleType.fontSize,
+    lineHeight: exerciseTitleType.lineHeight,
+    letterSpacing: exerciseTitleType.letterSpacing,
     color: colors.secondary,
-    letterSpacing: 1,
+    flex: 1,
   },
   vowel: {
     fontFamily: fonts.title,
-    fontSize: fontSizes.hero,
-    color: '#FFFFFF',
+    fontSize: exerciseTitleType.fontSize,
+    lineHeight: exerciseTitleType.lineHeight,
+    letterSpacing: exerciseTitleType.letterSpacing,
+    color: colors.light,
     textAlign: 'center',
     marginBottom: spacing.sm,
   },
@@ -121,18 +148,30 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: spacing.sm,
   },
+  hintLandscape: {
+    marginBottom: spacing.xs,
+    fontSize: fontSizes.xs,
+  },
   band: {
     flex: 1,
     backgroundColor: '#383838',
     borderRadius: 12,
     overflow: 'hidden',
     justifyContent: 'center',
+    minHeight: 100,
+  },
+  bandLandscape: {
+    minHeight: 80,
   },
   footer: {
     minHeight: 48,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: spacing.sm,
+  },
+  footerLandscape: {
+    minHeight: 36,
+    marginTop: spacing.xs,
   },
   scoreRow: {
     flexDirection: 'row',
@@ -147,6 +186,6 @@ const styles = StyleSheet.create({
   scoreValue: {
     fontFamily: fonts.title,
     fontSize: fontSizes.xl,
-    color: '#FFFFFF',
+    color: colors.light,
   },
 });

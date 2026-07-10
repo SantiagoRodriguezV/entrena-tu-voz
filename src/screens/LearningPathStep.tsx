@@ -70,7 +70,7 @@ const styles = StyleSheet.create({
   heading: {
     fontSize: 24,
     fontWeight: '700',
-    color: colors.textPrimary,
+    color: colors.light,
     marginBottom: spacing.sm,
   },
   subheading: {
@@ -109,7 +109,7 @@ const styles = StyleSheet.create({
   nodeLabel: {
     fontSize: 16,
     fontWeight: '600',
-    color: colors.textPrimary,
+    color: colors.light,
   },
   nodeLabelLocked: {
     color: colors.textMuted,
@@ -151,7 +151,7 @@ const styles = StyleSheet.create({
   lessonTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: colors.textPrimary,
+    color: colors.light,
     marginBottom: spacing.xs,
   },
   lessonHint: {

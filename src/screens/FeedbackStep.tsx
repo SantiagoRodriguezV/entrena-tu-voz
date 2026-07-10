@@ -85,7 +85,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 24,
     fontWeight: '700',
-    color: colors.textPrimary,
+    color: colors.light,
     marginBottom: spacing.lg,
   },
   indicators: {
@@ -120,7 +120,7 @@ const styles = StyleSheet.create({
   message: {
     fontSize: 16,
     lineHeight: 24,
-    color: colors.textPrimary,
+    color: colors.light,
   },
   metricsCard: {
     backgroundColor: colors.surface,
@@ -148,7 +148,7 @@ const styles = StyleSheet.create({
   metricValue: {
     fontSize: 14,
     fontWeight: '600',
-    color: colors.textPrimary,
+    color: colors.light,
   },
   disclaimer: {
     fontSize: 12,

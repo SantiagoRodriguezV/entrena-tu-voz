@@ -50,7 +50,7 @@ const styles = StyleSheet.create({
   title: {
     fontFamily: fonts.title,
     fontSize: fontSizes.xl,
-    color: colors.textPrimary,
+    color: colors.light,
   },
   body: {
     fontFamily: fonts.body,

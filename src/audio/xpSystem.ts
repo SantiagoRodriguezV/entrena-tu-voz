@@ -14,6 +14,11 @@ export function calculateExerciseXp(accuracyPercent: number): number {
   return Math.max(MIN_XP_PER_EXERCISE, Math.round(clamped));
 }
 
+/** XP estimado al completar una lección con precisión perfecta */
+export function estimateLessonTotalXp(exerciseCount: number): number {
+  return exerciseCount * calculateExerciseXp(100);
+}
+
 const PAUSE_THRESHOLD = 20;
 
 export function getLevelFromTotalXp(totalXp: number): UserProgress {

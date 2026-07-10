@@ -2,19 +2,27 @@ export type LevelStatus = 'completed' | 'unlocked' | 'locked';
 
 export type LevelCategory = 'canto' | 'distorsiones';
 
+export type MapColumn = 'left' | 'right' | 'center';
+
+export type MapPlatform = 'basic' | 'extremo';
+
 export type Level = {
   id: string;
   title: string;
   status: LevelStatus;
   category: LevelCategory;
-  mapNumber: number;
+  mapColumn: MapColumn;
+  mapRow: number;
+  displayCode: string;
+  platform: MapPlatform;
   lessonId?: string;
   lessonNumber?: number;
+  sectionLevel?: number;
   description: string;
   estimatedMinutes: number;
 };
 
-export type MainTab = 'desafios' | 'aprende' | 'entrena' | 'perfil';
+export type MainTab = 'menu' | 'aprende' | 'entrena' | 'desafios';
 
 export type ExerciseNote = {
   id: string;
@@ -55,6 +63,8 @@ export type NotePerformance = {
 
 export type AppScreen =
   | 'home'
+  | 'warmupIntro'
+  | 'warmupCompleted'
   | 'lessonIntro'
   | 'rotateDevice'
   | 'exerciseListen'
@@ -62,9 +72,12 @@ export type AppScreen =
   | 'exerciseMiniResult'
   | 'lessonCompleted';
 
+export type SessionMode = 'warmup' | 'lesson';
+
 export type NodeLayoutMetrics = {
   cx: number;
   cy: number;
+  top: number;
   bottom: number;
 };
 
@@ -84,5 +97,9 @@ export const PITCH_THRESHOLDS = {
   weakCents: 180,
 } as const;
 
-export const ASSISTIVE_MARGIN_CENTS = 65;
-export const SNAP_STRENGTH = 0.65;
+/** Pitch assist only when already close to target; scoring always uses raw Hz. */
+export const ASSISTIVE_MARGIN_CENTS = 25;
+/** Subtle pull toward target (0 = off, 1 = full snap). */
+export const SNAP_STRENGTH = 0.15;
+/** Timing assist for indicator only; kept near zero so progress is not faked. */
+export const HORIZONTAL_SNAP_STRENGTH = 0;

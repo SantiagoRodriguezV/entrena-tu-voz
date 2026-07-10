@@ -1,12 +1,12 @@
-import { Pressable, StyleSheet, Text, View, ViewStyle } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { colors } from '../theme/colors';
 import { fonts, fontSizes } from '../theme/typography';
 
 type PillActionButtonProps = {
-  variant: 'continue' | 'repeat';
-  onPress: () => void;
+  variant: 'continue' | 'repeat' | 'locked';
+  onPress?: () => void;
   accessibilityLabel?: string;
-  style?: ViewStyle;
+  style?: object;
   disabled?: boolean;
 };
 
@@ -21,6 +21,11 @@ const VARIANTS = {
     bottomColor: '#3A3A3A',
     label: 'REPETIR',
   },
+  locked: {
+    topColor: '#4A4A4A',
+    bottomColor: '#333333',
+    label: 'BLOQUEADO',
+  },
 } as const;
 
 export function PillActionButton({
@@ -31,24 +36,26 @@ export function PillActionButton({
   disabled = false,
 }: PillActionButtonProps) {
   const config = VARIANTS[variant];
+  const isDisabled = disabled || variant === 'locked';
 
   return (
     <Pressable
-      onPress={onPress}
-      disabled={disabled}
+      onPress={isDisabled ? undefined : onPress}
+      disabled={isDisabled}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel ?? config.label}
+      accessibilityState={{ disabled: isDisabled }}
       style={({ pressed }) => [
         styles.wrap,
         style,
-        disabled && styles.disabled,
-        pressed && !disabled && styles.pressed,
+        isDisabled && styles.disabled,
+        pressed && !isDisabled && styles.pressed,
       ]}
     >
       <View style={styles.pill}>
         <View style={[styles.half, styles.topHalf, { backgroundColor: config.topColor }]} />
         <View style={[styles.half, styles.bottomHalf, { backgroundColor: config.bottomColor }]} />
-        <Text style={styles.label}>{config.label}</Text>
+        <Text style={[styles.label, isDisabled && styles.labelDisabled]}>{config.label}</Text>
       </View>
     </Pressable>
   );
@@ -81,9 +88,12 @@ const styles = StyleSheet.create({
   label: {
     fontFamily: fonts.title,
     fontSize: fontSizes.md,
-    color: '#FFFFFF',
+    color: colors.light,
     letterSpacing: 1,
     zIndex: 1,
+  },
+  labelDisabled: {
+    opacity: 0.7,
   },
   pressed: {
     opacity: 0.9,

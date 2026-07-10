@@ -84,7 +84,7 @@ const styles = StyleSheet.create({
   title: {
     fontFamily: fonts.title,
     fontSize: fontSizes.xxl,
-    color: colors.textPrimary,
+    color: colors.light,
     marginBottom: spacing.sm,
   },
   subtitle: {

@@ -136,7 +136,7 @@ const styles = StyleSheet.create({
   hzValue: {
     fontSize: 14,
     fontWeight: '600',
-    color: colors.textPrimary,
+    color: colors.light,
     minWidth: 60,
   },
 });

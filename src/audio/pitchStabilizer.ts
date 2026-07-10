@@ -1,7 +1,7 @@
-const MEDIAN_WINDOW = 5;
-const EMA_ALPHA = 0.15;
-const MAX_JUMP_CENTS = 40;
-const VOICE_HOLD_MS = 120;
+const MEDIAN_WINDOW = 3;
+const EMA_ALPHA = 0.28;
+const MAX_JUMP_CENTS = 55;
+const VOICE_HOLD_MS = 90;
 
 export class PitchStabilizer {
   private window: number[] = [];

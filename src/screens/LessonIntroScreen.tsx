@@ -1,8 +1,10 @@
+import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { PrimaryButton } from '../components/PrimaryButton';
-import { ScreenLayout } from '../components/ScreenLayout';
+import { BackConfirmPanel } from '../components/BackConfirmPanel';
+import { IntroScreenLayout } from '../components/IntroScreenLayout';
+import { PillActionButton } from '../components/PillActionButton';
 import { LESSON_EXERCISE_COUNT } from '../data/lessonExercises';
-import { colors } from '../theme/colors';
+import { colors, palette } from '../theme/colors';
 import { borderRadius, spacing } from '../theme/spacing';
 import { fonts, fontSizes } from '../theme/typography';
 
@@ -13,9 +15,31 @@ type LessonIntroScreenProps = {
 };
 
 export function LessonIntroScreen({ title, onContinue, onBack }: LessonIntroScreenProps) {
+  const [backConfirmVisible, setBackConfirmVisible] = useState(false);
+
   return (
-    <ScreenLayout variant="dark">
-      <Text style={styles.title}>{title}</Text>
+    <IntroScreenLayout
+      title={<Text style={styles.title}>{title}</Text>}
+      footer={
+        <>
+          <PillActionButton
+            variant="continue"
+            onPress={onContinue}
+            accessibilityLabel="Comenzar lección"
+          />
+          <View style={styles.backWrap}>
+            <Text style={styles.backLink} onPress={() => setBackConfirmVisible(true)}>
+              Volver al mapa
+            </Text>
+          </View>
+          <BackConfirmPanel
+            visible={backConfirmVisible}
+            onDismiss={() => setBackConfirmVisible(false)}
+            onConfirm={onBack}
+          />
+        </>
+      }
+    >
       <Text style={styles.body}>
         Esta lección incluye {LESSON_EXERCISE_COUNT} ejercicios vocales. La app
         observará en tiempo real tu altura, volumen y duración para darte feedback.
@@ -27,48 +51,46 @@ export function LessonIntroScreen({ title, onContinue, onBack }: LessonIntroScre
           molestia.
         </Text>
       </View>
-
-      <View style={styles.footer}>
-        <PrimaryButton label="Comenzar" onPress={onContinue} />
-        <View style={styles.spacer} />
-        <PrimaryButton label="Volver al mapa" onPress={onBack} variant="outline" />
-      </View>
-    </ScreenLayout>
+    </IntroScreenLayout>
   );
 }
 
 const styles = StyleSheet.create({
   title: {
     fontFamily: fonts.title,
-    fontSize: fontSizes.xxl,
-    color: colors.textPrimary,
-    marginBottom: spacing.md,
+    fontSize: fontSizes.hero,
+    color: colors.secondary,
+    textAlign: 'center',
   },
   body: {
     fontFamily: fonts.body,
-    fontSize: fontSizes.md,
-    lineHeight: 24,
-    color: colors.textSecondary,
+    fontSize: fontSizes.lg,
+    color: colors.light,
+    textAlign: 'center',
+    lineHeight: 26,
     marginBottom: spacing.lg,
   },
   warningCard: {
-    backgroundColor: colors.warning + '33',
+    backgroundColor: palette.dark80,
     borderRadius: borderRadius.md,
     padding: spacing.md,
     borderLeftWidth: 4,
     borderLeftColor: colors.warning,
-    marginBottom: spacing.xl,
   },
   warningText: {
     fontFamily: fonts.body,
     fontSize: fontSizes.md,
-    color: colors.textPrimary,
+    color: colors.light,
     lineHeight: 22,
+    textAlign: 'center',
   },
-  footer: {
-    marginTop: spacing.lg,
+  backWrap: {
+    alignItems: 'center',
   },
-  spacer: {
-    height: spacing.sm,
+  backLink: {
+    fontFamily: fonts.body,
+    fontSize: fontSizes.md,
+    color: colors.textSecondary,
+    textDecorationLine: 'underline',
   },
 });

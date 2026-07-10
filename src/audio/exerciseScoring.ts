@@ -1,4 +1,4 @@
-import { getPitchScore, isWithinNote } from './pitchUtils';
+import { getCentsError, getPitchScore, isWithinNote } from './pitchUtils';
 import { getVolumeCategory, getVolumeScore } from './volumeUtils';
 import { ExerciseNote, NotePerformance, VocalFrame } from '../types/exercise';
 
@@ -31,7 +31,7 @@ export function scoreNotePerformance(
 
     if (frame.detectedHz !== null && frame.isVoiceActive) {
       const pitchScore = getPitchScore(
-        1200 * Math.log2(frame.detectedHz / note.targetHz),
+        getCentsError(frame.detectedHz, note.targetHz),
       );
       pitchSum += pitchScore;
       pitchCount += 1;

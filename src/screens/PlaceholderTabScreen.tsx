@@ -1,25 +1,34 @@
 import { StyleSheet, Text, View } from 'react-native';
 import { ScreenLayout } from '../components/ScreenLayout';
-import { colors } from '../theme/colors';
+import { SectionBackHeader } from '../components/SectionBackHeader';
+import { colors, palette } from '../theme/colors';
 import { spacing } from '../theme/spacing';
 import { fonts, fontSizes } from '../theme/typography';
 
 type PlaceholderTabScreenProps = {
   title: string;
+  onNavigateHome?: () => void;
 };
 
-export function PlaceholderTabScreen({ title }: PlaceholderTabScreenProps) {
+export function PlaceholderTabScreen({ title, onNavigateHome }: PlaceholderTabScreenProps) {
   return (
-    <ScreenLayout variant="dark">
-      <View style={styles.center}>
-        <Text style={styles.title}>{title}</Text>
-        <Text style={styles.subtitle}>Próximamente</Text>
-      </View>
-    </ScreenLayout>
+    <View style={styles.root}>
+      {onNavigateHome && <SectionBackHeader onBack={onNavigateHome} />}
+      <ScreenLayout variant="dark">
+        <View style={styles.center}>
+          <Text style={styles.title}>{title}</Text>
+          <Text style={styles.subtitle}>Próximamente</Text>
+        </View>
+      </ScreenLayout>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+    backgroundColor: palette.dark100,
+  },
   center: {
     flex: 1,
     alignItems: 'center',
@@ -28,7 +37,7 @@ const styles = StyleSheet.create({
   title: {
     fontFamily: fonts.title,
     fontSize: fontSizes.xxl,
-    color: colors.textPrimary,
+    color: colors.light,
     marginBottom: spacing.md,
   },
   subtitle: {

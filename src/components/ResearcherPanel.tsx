@@ -90,7 +90,7 @@ const styles = StyleSheet.create({
   badge: {
     alignSelf: 'flex-start',
     backgroundColor: colors.warning + '33',
-    color: colors.textPrimary,
+    color: colors.light,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
     borderRadius: borderRadius.sm,
@@ -103,7 +103,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: fontSizes.xl,
     fontFamily: fonts.title,
-    color: colors.textPrimary,
+    color: colors.light,
     marginBottom: spacing.sm,
   },
   description: {
@@ -151,6 +151,6 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: fontSizes.md,
     fontFamily: fonts.body,
-    color: colors.textPrimary,
+    color: colors.light,
   },
 });

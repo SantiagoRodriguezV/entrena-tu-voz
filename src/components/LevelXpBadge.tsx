@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Platform, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 import Animated, {
   useAnimatedProps,
@@ -10,7 +10,8 @@ import { UserProgress } from '../audio/xpSystem';
 import { colors } from '../theme/colors';
 import { fonts, fontSizes } from '../theme/typography';
 
-const AnimatedCircle = Animated.createAnimatedComponent(Circle);
+const AnimatedCircle =
+  Platform.OS === 'web' ? Circle : Animated.createAnimatedComponent(Circle);
 
 type LevelXpBadgeProps = {
   progress: UserProgress;
@@ -45,6 +46,19 @@ export function LevelXpBadge({ progress, size = 44, animate = false }: LevelXpBa
     };
   });
 
+  const ringProps = {
+    cx: center,
+    cy: center,
+    r: radius,
+    stroke: RING_COLOR,
+    strokeWidth: strokeWidth,
+    fill: 'none' as const,
+    strokeDasharray: `${circumference} ${circumference}`,
+    strokeLinecap: 'round' as const,
+    rotation: -90,
+    origin: `${center}, ${center}`,
+  };
+
   return (
     <View style={[styles.wrap, { width: size, height: size }]}>
       <Svg width={size} height={size} style={styles.svg}>
@@ -56,19 +70,14 @@ export function LevelXpBadge({ progress, size = 44, animate = false }: LevelXpBa
           strokeWidth={strokeWidth}
           fill="none"
         />
-        <AnimatedCircle
-          cx={center}
-          cy={center}
-          r={radius}
-          stroke={RING_COLOR}
-          strokeWidth={strokeWidth}
-          fill="none"
-          strokeDasharray={`${circumference} ${circumference}`}
-          animatedProps={animatedRingProps}
-          strokeLinecap="round"
-          rotation={-90}
-          origin={`${center}, ${center}`}
-        />
+        {Platform.OS === 'web' ? (
+          <Circle
+            {...ringProps}
+            strokeDashoffset={circumference * (1 - targetRatio)}
+          />
+        ) : (
+          <AnimatedCircle {...ringProps} animatedProps={animatedRingProps} />
+        )}
       </Svg>
       <Text style={[styles.levelText, { fontSize: size * 0.38 }]}>{progress.level}</Text>
     </View>
@@ -85,7 +94,7 @@ const styles = StyleSheet.create({
   },
   levelText: {
     fontFamily: fonts.title,
-    color: colors.textPrimary,
+    color: colors.light,
     textAlign: 'center',
     includeFontPadding: false,
   },

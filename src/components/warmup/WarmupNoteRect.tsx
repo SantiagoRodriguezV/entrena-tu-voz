@@ -57,7 +57,7 @@ const styles = StyleSheet.create({
   vowel: {
     fontFamily: fonts.title,
     fontSize: fontSizes.xs,
-    color: '#FFFFFF',
+    color: colors.light,
     letterSpacing: 0.5,
   },
   glow: {

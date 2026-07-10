@@ -94,8 +94,8 @@ export async function startRealVocalEngine(): Promise<boolean> {
       minFrequency: 80,
       maxFrequency: 500,
       noiseGateDb: -50,
-      confidenceThreshold: 0.55,
-      emaAlpha: 0.25,
+      confidenceThreshold: 0.5,
+      emaAlpha: 0.32,
       quality: 'balanced',
     });
     TunerEngine.setInstrument('chromatic');

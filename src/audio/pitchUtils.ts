@@ -1,11 +1,17 @@
 import {
   ASSISTIVE_MARGIN_CENTS,
   ExerciseNote,
+  HORIZONTAL_SNAP_STRENGTH,
   PITCH_THRESHOLDS,
   SNAP_STRENGTH,
 } from '../types/exercise';
 
-export { ASSISTIVE_MARGIN_CENTS, SNAP_STRENGTH, PITCH_THRESHOLDS };
+export {
+  ASSISTIVE_MARGIN_CENTS,
+  HORIZONTAL_SNAP_STRENGTH,
+  SNAP_STRENGTH,
+  PITCH_THRESHOLDS,
+};
 
 export function hzToY(
   hz: number,
@@ -48,10 +54,16 @@ export function isWithinNote(timeMs: number, note: ExerciseNote): boolean {
   return timeMs >= note.startMs && timeMs <= note.startMs + note.durationMs;
 }
 
+/**
+ * Optional visual assist when the singer is already near the target.
+ * Never use for scoring — exercise evaluation must use raw detected Hz.
+ */
 export function applyPitchSnap(
   detectedHz: number,
   targetHz: number,
 ): number {
+  if (SNAP_STRENGTH <= 0) return detectedHz;
+
   const centsError = getCentsError(detectedHz, targetHz);
   if (Math.abs(centsError) <= ASSISTIVE_MARGIN_CENTS) {
     const snappedCents = centsError * (1 - SNAP_STRENGTH);
@@ -60,18 +72,37 @@ export function applyPitchSnap(
   return detectedHz;
 }
 
+/** Hz used for the pitch ball — faithful voice with optional micro-assist. */
+export function getDisplayPitchHz(
+  detectedHz: number,
+  targetHz: number,
+): number {
+  return applyPitchSnap(detectedHz, targetHz);
+}
+
 export function applyHorizontalSnap(
   timeMs: number,
   note: ExerciseNote,
 ): number {
+  if (HORIZONTAL_SNAP_STRENGTH <= 0) return timeMs;
+
   const noteStart = note.startMs;
   const noteEnd = note.startMs + note.durationMs;
   if (timeMs >= noteStart && timeMs <= noteEnd) {
     const progress = (timeMs - noteStart) / note.durationMs;
-    const snappedProgress = progress * (1 - SNAP_STRENGTH) + 0.5 * SNAP_STRENGTH;
+    const snappedProgress =
+      progress * (1 - HORIZONTAL_SNAP_STRENGTH) + 0.5 * HORIZONTAL_SNAP_STRENGTH;
     return noteStart + snappedProgress * note.durationMs;
   }
   return timeMs;
+}
+
+export function isPitchOnTarget(
+  detectedHz: number,
+  targetHz: number,
+  maxCents: number = PITCH_THRESHOLDS.goodCents,
+): boolean {
+  return Math.abs(getCentsError(detectedHz, targetHz)) <= maxCents;
 }
 
 export function getPitchColor(centsError: number): string {
@@ -89,4 +120,17 @@ export function getMinMaxHz(notes: ExerciseNote[]): { minHz: number; maxHz: numb
   const max = Math.max(...hzValues);
   const padding = (max - min) * 0.35 || 20;
   return { minHz: min - padding, maxHz: max + padding };
+}
+
+export function getPitchRangeForDisplay(
+  notes: ExerciseNote[],
+  detectedHz: number | null,
+): { minHz: number; maxHz: number } {
+  const base = getMinMaxHz(notes);
+  if (detectedHz === null || detectedHz <= 0) return base;
+  const padding = (base.maxHz - base.minHz) * 0.08 || 12;
+  return {
+    minHz: Math.min(base.minHz, detectedHz - padding),
+    maxHz: Math.max(base.maxHz, detectedHz + padding),
+  };
 }
