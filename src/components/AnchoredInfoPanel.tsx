@@ -8,7 +8,7 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
-import { colors } from '../theme/colors';
+import { colors, palette } from '../theme/colors';
 import { borderRadius, PANEL_ANCHOR_GAP, spacing } from '../theme/spacing';
 import { fonts, fontSizes } from '../theme/typography';
 
@@ -94,7 +94,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     backgroundColor: colors.surface,
     borderWidth: 3,
-    borderColor: '#0D6E74',
+    borderColor: palette.turqShadeMain,
     borderRadius: borderRadius.lg,
     padding: spacing.lg,
   },

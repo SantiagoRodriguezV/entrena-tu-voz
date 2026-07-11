@@ -7,9 +7,14 @@ import { fonts, fontSizes } from '../theme/typography';
 type SettingsModalProps = {
   visible: boolean;
   onClose: () => void;
+  onRecalibrateVoice?: () => void;
 };
 
-export function SettingsModal({ visible, onClose }: SettingsModalProps) {
+export function SettingsModal({
+  visible,
+  onClose,
+  onRecalibrateVoice,
+}: SettingsModalProps) {
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <View style={styles.overlay}>
@@ -27,6 +32,13 @@ export function SettingsModal({ visible, onClose }: SettingsModalProps) {
             Para instalar en tu teléfono: conecta el dispositivo y ejecuta{' '}
             <Text style={styles.code}>npx expo run:android</Text>
           </Text>
+          {onRecalibrateVoice ? (
+            <PrimaryButton
+              label="Recalibrar voz"
+              onPress={onRecalibrateVoice}
+              variant="secondary"
+            />
+          ) : null}
           <PrimaryButton label="Cerrar" onPress={onClose} variant="outline" />
         </View>
       </View>

@@ -19,8 +19,8 @@ type LevelXpBadgeProps = {
   animate?: boolean;
 };
 
-const RING_COLOR = '#22BAA6';
-const TRACK_COLOR = '#3A3A3A';
+const RING_COLOR = colors.secondary;
+const TRACK_COLOR = colors.border;
 
 export function LevelXpBadge({ progress, size = 44, animate = false }: LevelXpBadgeProps) {
   const strokeWidth = 4;

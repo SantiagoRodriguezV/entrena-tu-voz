@@ -5,10 +5,10 @@ import { DemoScenario, VocalFrame } from '../types/exercise';
 
 let currentScenario: DemoScenario = 'good';
 
-const MODERATE_DB = 68;
-const LOW_DB = 48;
+const MODERATE_DB = 70; // cómoda / habitual (manual pedagogía)
+const LOW_DB = 55;
 const HIGH_DB = 82;
-const EXTREME_DB = 92;
+const EXTREME_DB = 90;
 
 export function setDemoScenario(scenario: DemoScenario): void {
   currentScenario = scenario;
@@ -84,9 +84,17 @@ export function getFrameAt(timeMs: number): VocalFrame {
   return {
     timeMs,
     detectedHz,
+    rawHz: detectedHz,
+    pitchConfidence: isVoiceActive ? 0.85 : 0,
+    relativeDb: volumeDb,
     volumeDb,
     volumeCategory,
     isVoiceActive,
+    harmonicityScore: null,
+    noiseRatioProxy: null,
+    stabilityScore: null,
+    clippingDetected: volumeCategory === 'extreme',
+    captureConfidence: isVoiceActive ? 0.85 : 0.2,
   };
 }
 

@@ -11,6 +11,8 @@ import { fonts, fontSizes } from '../../theme/typography';
 type WarmupNoteRectProps = {
   vowelLabel: string;
   isIlluminated: boolean;
+  /** Live accuracy color when illuminated; defaults to teal. */
+  accuracyColor?: string | null;
   width?: number;
   height?: number;
   style?: ViewStyle;
@@ -19,11 +21,13 @@ type WarmupNoteRectProps = {
 export function WarmupNoteRect({
   vowelLabel,
   isIlluminated,
+  accuracyColor = null,
   width = 100,
   height = 32,
   style,
 }: WarmupNoteRectProps) {
   const glowOpacity = useSharedValue(0);
+  const glowColor = accuracyColor ?? colors.secondary;
 
   useEffect(() => {
     glowOpacity.value = withTiming(isIlluminated ? 1 : 0, { duration: 300 });
@@ -38,7 +42,17 @@ export function WarmupNoteRect({
       <View style={styles.base}>
         <Text style={styles.vowel}>{vowelLabel}</Text>
       </View>
-      <Animated.View style={[styles.glow, glowStyle]} pointerEvents="none" />
+      <Animated.View
+        style={[
+          styles.glow,
+          glowStyle,
+          {
+            backgroundColor: glowColor,
+            borderColor: glowColor,
+          },
+        ]}
+        pointerEvents="none"
+      />
     </View>
   );
 }
@@ -62,9 +76,7 @@ const styles = StyleSheet.create({
   },
   glow: {
     ...StyleSheet.absoluteFill,
-    backgroundColor: colors.secondary,
     borderRadius: 16,
     borderWidth: 2,
-    borderColor: colors.secondary,
   },
 });

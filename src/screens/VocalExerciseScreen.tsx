@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import Animated, {
+import {
   Easing,
   useSharedValue,
   withTiming,
@@ -13,12 +13,18 @@ import {
   getPitchAccuracyPercent,
   PAUSE_ACCURACY_THRESHOLD,
 } from '../audio/accuracyUtils';
-import { scoreNotePerformance } from '../audio/exerciseScoring';
+import {
+  decideCoachingMessage,
+  getCoachingCopy,
+} from '../audio/evaluation/coachDecision';
+import { createEmptyVocalFrame } from '../audio/evaluation/emptyFrame';
+import { enrichFrameForNote } from '../audio/evaluation/enrichFrame';
+import { evaluateNote } from '../audio/evaluation/noteEvaluator';
+import { getScoringHz, isSungFrame } from '../audio/evaluation/sungFrame';
 import {
   getCentsError,
   getCurrentTargetNote,
   getDisplayPitchHz,
-  getMinMaxHz,
   getPitchRangeForDisplay,
   hzToY,
   isWithinNote,
@@ -28,11 +34,12 @@ import { PrimaryButton } from '../components/PrimaryButton';
 import { ScreenLayout } from '../components/ScreenLayout';
 import { VoiceIndicator } from '../components/VoiceIndicator';
 import { WarmupExerciseShell } from '../components/warmup/WarmupExerciseShell';
+import { WarmupNoteStaircase } from '../components/warmup/WarmupNoteStaircase';
 import {
-  WarmupNoteStaircase,
-  getWarmupScrollLayout,
-} from '../components/warmup/WarmupNoteStaircase';
-import { getWarmupLaneMetrics, warmupTimeToX } from '../theme/warmupLaneMetrics';
+  getExerciseBandMetrics,
+  getExerciseNoteGridLayout,
+  timeToGridPlayheadX,
+} from '../theme/warmupLaneMetrics';
 import { useResponsive } from '../theme/responsive';
 import { ExerciseNote, NotePerformance, VocalFrame } from '../types/exercise';
 import { colors } from '../theme/colors';
@@ -44,6 +51,9 @@ type VocalExerciseScreenProps = {
   lessonTitle: string;
   vowelLabel: string;
   notes: ExerciseNote[];
+  sessionScore?: number;
+  /** Personal comfort level for relative volume; null = absolute fallback. */
+  comfortDb?: number | null;
   onComplete: (result: {
     performances: NotePerformance[];
     accuracyPercent: number;
@@ -52,36 +62,51 @@ type VocalExerciseScreenProps = {
   }) => void;
   onCancel: () => void;
   onBack: () => void;
+  onRestartSession: () => void;
+  onExitToLessonMenu: () => void;
   vocalFrame: VocalFrame | null;
   micReady: boolean;
 };
 
 const TICK_MS = 50;
-const INDICATOR_SIZE = 14;
+const INDICATOR_SIZE = 24;
+const STABILITY_WINDOW = 12;
 
 export function VocalExerciseScreen({
   exerciseIndex,
   lessonTitle,
   vowelLabel,
   notes,
+  sessionScore = 0,
+  comfortDb = null,
   onComplete,
   onCancel,
   onBack,
+  onRestartSession,
+  onExitToLessonMenu,
   vocalFrame,
   micReady,
 }: VocalExerciseScreenProps) {
   const { width, height } = useResponsive();
-  const laneMetrics = useMemo(
-    () => getWarmupLaneMetrics(width, height),
+  const band = useMemo(
+    () => getExerciseBandMetrics(width, height),
     [width, height],
+  );
+  const cells = useMemo(
+    () => getExerciseNoteGridLayout(notes, band),
+    [notes, band],
   );
   const exerciseDurationMs = getLessonExerciseDuration(exerciseIndex - 1);
 
   const [timeMs, setTimeMs] = useState(0);
-  const [pauseMessage, setPauseMessage] = useState<string | null>(null);
+  const [coachHint, setCoachHint] = useState<string | null>(
+    getCoachingCopy('keepGoing'),
+  );
   const [indicatorColor, setIndicatorColor] = useState<string>(colors.secondary);
+  const [activeNoteColor, setActiveNoteColor] = useState<string | null>(null);
   const [activeNoteId, setActiveNoteId] = useState<string | null>(notes[0]?.id ?? null);
   const [liveScore, setLiveScore] = useState(0);
+  const pausedRef = useRef(false);
 
   const timeMsRef = useRef(0);
   const framesRef = useRef<VocalFrame[]>([]);
@@ -93,17 +118,16 @@ export function VocalExerciseScreen({
   const wasVoiceActiveRef = useRef(false);
   const holdingAtEndRef = useRef<string | null>(null);
   const heldPastEndMsRef = useRef<Record<string, number>>({});
+  const recentCentsRef = useRef<number[]>([]);
 
-  const { minHz, maxHz } = getMinMaxHz(notes);
-
-  const indicatorX = useSharedValue(laneMetrics.playheadX);
-  const indicatorY = useSharedValue(laneMetrics.laneHeight / 2);
+  const indicatorX = useSharedValue(band.gridOffsetX);
+  const indicatorY = useSharedValue(band.bandHeight / 2);
   const indicatorOpacity = useSharedValue(1);
 
   useEffect(() => {
-    indicatorX.value = laneMetrics.playheadX;
-    indicatorY.value = laneMetrics.laneHeight / 2;
-  }, [indicatorX, indicatorY, laneMetrics.laneHeight, laneMetrics.playheadX]);
+    indicatorX.value = band.gridOffsetX;
+    indicatorY.value = band.bandHeight / 2;
+  }, [indicatorX, indicatorY, band.bandHeight, band.gridOffsetX]);
 
   const updateIndicatorVisuals = useCallback(
     (
@@ -114,14 +138,13 @@ export function VocalExerciseScreen({
     ) => {
       if (!targetNote) return;
 
-      const layout = getWarmupScrollLayout(targetNote, minHz, maxHz, laneMetrics);
-      setIndicatorColor(getColorFromAccuracy(accuracy));
+      const cell = cells.find((c) => c.note.id === targetNote.id);
+      const playheadX = timeToGridPlayheadX(currentTime, cells);
+      const color = getColorFromAccuracy(accuracy);
+      setIndicatorColor(color);
+      setActiveNoteColor(isSungFrame(frame) ? color : null);
 
-      if (frame.isVoiceActive && frame.detectedHz !== null) {
-        const scrollOffset =
-          currentTime * laneMetrics.pixelsPerMs - laneMetrics.playheadX;
-        const targetX =
-          warmupTimeToX(currentTime, laneMetrics.pixelsPerMs) - scrollOffset;
+      if (isSungFrame(frame) && frame.detectedHz !== null) {
         const displayHz = getDisplayPitchHz(frame.detectedHz, targetNote.targetHz);
         const { minHz: displayMinHz, maxHz: displayMaxHz } = getPitchRangeForDisplay(
           notes,
@@ -131,10 +154,10 @@ export function VocalExerciseScreen({
           displayHz,
           displayMinHz,
           displayMaxHz,
-          laneMetrics.laneHeight,
-        );
+          band.gridHeight,
+        ) + band.gridOffsetY;
 
-        indicatorX.value = withTiming(targetX, {
+        indicatorX.value = withTiming(playheadX, {
           duration: 150,
           easing: Easing.inOut(Easing.ease),
         });
@@ -144,18 +167,18 @@ export function VocalExerciseScreen({
         });
         indicatorOpacity.value = withTiming(1, { duration: 200 });
       } else {
-        indicatorX.value = withTiming(laneMetrics.playheadX, {
+        indicatorX.value = withTiming(playheadX, {
           duration: 280,
           easing: Easing.inOut(Easing.ease),
         });
-        indicatorY.value = withTiming(layout.centerY, {
+        indicatorY.value = withTiming(cell?.centerY ?? band.bandHeight / 2, {
           duration: 280,
           easing: Easing.inOut(Easing.ease),
         });
         indicatorOpacity.value = withTiming(0.35, { duration: 280 });
       }
     },
-    [indicatorOpacity, indicatorX, indicatorY, laneMetrics, minHz, maxHz, notes],
+    [band, cells, indicatorOpacity, indicatorX, indicatorY, notes],
   );
 
   useEffect(() => {
@@ -172,38 +195,59 @@ export function VocalExerciseScreen({
     holdingAtEndRef.current = null;
     wasVoiceActiveRef.current = false;
     completedRef.current = false;
+    recentCentsRef.current = [];
     setTimeMs(0);
-    setPauseMessage(null);
+    setCoachHint(getCoachingCopy('keepGoing'));
     setLiveScore(0);
+    setActiveNoteColor(null);
 
     const interval = setInterval(() => {
       if (completedRef.current) return;
+      if (pausedRef.current) return;
 
       let currentTime = timeMsRef.current;
-      const frame = vocalFrameRef.current ?? {
-        timeMs: currentTime,
-        detectedHz: null,
-        volumeDb: null,
-        volumeCategory: 'low' as const,
-        isVoiceActive: false,
-      };
+      const frame = vocalFrameRef.current ?? createEmptyVocalFrame(currentTime);
+      const targetNote = getCurrentTargetNote(currentTime, notes);
+      setActiveNoteId(targetNote?.id ?? null);
 
       const frameWithTime = { ...frame, timeMs: currentTime };
       framesRef.current.push(frameWithTime);
 
-      const targetNote = getCurrentTargetNote(currentTime, notes);
-      setActiveNoteId(targetNote?.id ?? null);
+      const enriched = enrichFrameForNote(frameWithTime, targetNote, {
+        comfortDb,
+      });
+
+      if (enriched.pitchErrorCents !== null && isSungFrame(frame)) {
+        recentCentsRef.current.push(Math.abs(enriched.pitchErrorCents));
+        if (recentCentsRef.current.length > STABILITY_WINDOW) {
+          recentCentsRef.current.shift();
+        }
+      } else if (!isSungFrame(frame)) {
+        recentCentsRef.current = [];
+      }
+
+      let liveStability: number | null = null;
+      if (recentCentsRef.current.length >= 4) {
+        const values = recentCentsRef.current;
+        const mean = values.reduce((s, v) => s + v, 0) / values.length;
+        const variance =
+          values.reduce((s, v) => s + (v - mean) ** 2, 0) / values.length;
+        const std = Math.sqrt(variance);
+        liveStability = Math.max(0, Math.min(1, 1 - std / 40));
+      }
 
       let accuracy = 0;
       let shouldAdvanceTime = true;
+      let holdingForPitch = false;
 
       if (targetNote) {
         const noteId = targetNote.id;
         const noteEnd = targetNote.startMs + targetNote.durationMs;
+        const scoringHz = getScoringHz(frame);
 
         if (
           wasVoiceActiveRef.current &&
-          !frame.isVoiceActive &&
+          !isSungFrame(frame) &&
           isWithinNote(currentTime, targetNote) &&
           !scoredNotesRef.current.has(noteId)
         ) {
@@ -211,10 +255,11 @@ export function VocalExerciseScreen({
           setTimeMs(targetNote.startMs);
           noteActiveMsRef.current[noteId] = 0;
           holdingAtEndRef.current = null;
+          recentCentsRef.current = [];
           currentTime = targetNote.startMs;
         }
 
-        if (frame.isVoiceActive) {
+        if (isSungFrame(frame)) {
           noteActiveMsRef.current[noteId] =
             (noteActiveMsRef.current[noteId] ?? 0) + TICK_MS;
         }
@@ -223,13 +268,16 @@ export function VocalExerciseScreen({
           1,
           (noteActiveMsRef.current[noteId] ?? 0) / targetNote.durationMs,
         );
-        accuracy = getLiveAccuracyPercent(frameWithTime, targetNote, heldRatio);
+        accuracy = getLiveAccuracyPercent(
+          frameWithTime,
+          targetNote,
+          heldRatio,
+          { comfortDb },
+        );
 
         const pitchPercent =
-          frame.detectedHz !== null && frame.isVoiceActive
-            ? getPitchAccuracyPercent(
-                getCentsError(frame.detectedHz, targetNote.targetHz),
-              )
+          scoringHz !== null
+            ? getPitchAccuracyPercent(getCentsError(scoringHz, targetNote.targetHz))
             : 0;
 
         if (currentTime >= noteEnd && !scoredNotesRef.current.has(noteId)) {
@@ -240,18 +288,18 @@ export function VocalExerciseScreen({
             timeMsRef.current = noteEnd;
             setTimeMs(noteEnd);
             shouldAdvanceTime = false;
-            setPauseMessage('Alcanza la nota para continuar');
-          } else if (frame.isVoiceActive) {
+            holdingForPitch = true;
+          } else if (isSungFrame(frame)) {
             scoredNotesRef.current.add(noteId);
             holdingAtEndRef.current = null;
-            const performance = scoreNotePerformance(framesRef.current, targetNote, {
+            const performance = evaluateNote(framesRef.current, targetNote, {
               heldPastEndMs: heldPastEndMsRef.current[noteId] ?? 0,
+              comfortDb,
             });
             performancesRef.current.push(performance);
             setLiveScore(
               Math.round(aggregateExerciseAccuracy(performancesRef.current)),
             );
-            setPauseMessage(null);
           } else {
             holdingAtEndRef.current = noteId;
             heldPastEndMsRef.current[noteId] =
@@ -259,16 +307,23 @@ export function VocalExerciseScreen({
             timeMsRef.current = noteEnd;
             setTimeMs(noteEnd);
             shouldAdvanceTime = false;
-            setPauseMessage('Alcanza la nota para continuar');
+            holdingForPitch = true;
           }
         } else if (holdingAtEndRef.current === noteId) {
           shouldAdvanceTime = false;
-        } else {
-          setPauseMessage(null);
+          holdingForPitch = true;
         }
       }
 
-      wasVoiceActiveRef.current = frame.isVoiceActive;
+      const coaching = decideCoachingMessage({
+        frame: enriched,
+        note: targetNote,
+        holdingForPitch,
+        liveStability,
+      });
+      setCoachHint(getCoachingCopy(coaching));
+
+      wasVoiceActiveRef.current = isSungFrame(frame);
       updateIndicatorVisuals(frameWithTime, targetNote, currentTime, accuracy);
 
       if (shouldAdvanceTime && currentTime < exerciseDurationMs) {
@@ -286,8 +341,9 @@ export function VocalExerciseScreen({
           if (!scoredNotesRef.current.has(note.id)) {
             scoredNotesRef.current.add(note.id);
             performancesRef.current.push(
-              scoreNotePerformance(framesRef.current, note, {
+              evaluateNote(framesRef.current, note, {
                 heldPastEndMs: heldPastEndMsRef.current[note.id] ?? 0,
+                comfortDb,
               }),
             );
           }
@@ -304,7 +360,14 @@ export function VocalExerciseScreen({
     }, TICK_MS);
 
     return () => clearInterval(interval);
-  }, [exerciseIndex, notes, exerciseDurationMs, onComplete, updateIndicatorVisuals]);
+  }, [
+    exerciseIndex,
+    notes,
+    exerciseDurationMs,
+    onComplete,
+    updateIndicatorVisuals,
+    comfortDb,
+  ]);
 
   if (!micReady) {
     return (
@@ -323,10 +386,14 @@ export function VocalExerciseScreen({
     <WarmupExerciseShell
       lessonTitle={lessonTitle}
       vowelLabel={vowelLabel}
-      hint={pauseMessage ?? `Ejercicio ${exerciseIndex} / 6`}
-      score={liveScore}
+      hint={coachHint ?? `Ejercicio ${exerciseIndex} / 6`}
+      score={sessionScore + liveScore}
       showPause
-      onPause={onCancel}
+      onPausedChange={(isPaused) => {
+        pausedRef.current = isPaused;
+      }}
+      onRestartSession={onRestartSession}
+      onExitToLessonMenu={onExitToLessonMenu}
       onBack={onBack}
     >
       <View style={styles.laneWrapper}>
@@ -335,6 +402,7 @@ export function VocalExerciseScreen({
           vowelLabel={vowelLabel}
           mode="scrolling"
           activeNoteId={activeNoteId}
+          activeNoteColor={activeNoteColor}
           timeMs={timeMs}
           overlay={
             <VoiceIndicator
@@ -354,8 +422,10 @@ export function VocalExerciseScreen({
 const styles = StyleSheet.create({
   laneWrapper: {
     flex: 1,
+    width: '100%',
     position: 'relative',
     justifyContent: 'center',
+    alignItems: 'center',
   },
   waitingTitle: {
     fontFamily: fonts.title,

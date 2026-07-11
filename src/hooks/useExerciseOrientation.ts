@@ -4,6 +4,7 @@ import * as ScreenOrientation from 'expo-screen-orientation';
 import { AppScreen } from '../types/exercise';
 
 const LANDSCAPE_SCREENS = new Set<AppScreen>([
+  'exerciseReady',
   'exerciseListen',
   'vocalExercise',
   'exerciseMiniResult',
@@ -13,6 +14,7 @@ const PORTRAIT_SCREENS = new Set<AppScreen>([
   'home',
   'warmupIntro',
   'lessonIntro',
+  'vocalCalibration',
   'warmupCompleted',
   'lessonCompleted',
 ]);

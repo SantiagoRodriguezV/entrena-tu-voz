@@ -60,5 +60,8 @@ if (Test-Path $AndroidDir) {
 Write-Host "JAVA_HOME=$env:JAVA_HOME"
 Write-Host "ANDROID_HOME=$env:ANDROID_HOME"
 
+# Avoid interactive "port in use" prompts when Metro is already running.
+$env:CI = "1"
+
 Set-Location $ProjectRoot
 npx expo run:android @args

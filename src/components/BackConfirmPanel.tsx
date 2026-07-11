@@ -1,6 +1,6 @@
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { PillActionButton } from './PillActionButton';
-import { colors } from '../theme/colors';
+import { colors, palette } from '../theme/colors';
 import { borderRadius, spacing } from '../theme/spacing';
 import { fonts, fontSizes } from '../theme/typography';
 
@@ -19,14 +19,19 @@ export function BackConfirmPanel({ visible, onDismiss, onConfirm }: BackConfirmP
           <Text style={styles.body}>
             Perderás el progreso de la sesión actual en esta pantalla.
           </Text>
-          <PillActionButton
-            variant="continue"
-            onPress={() => {
-              onDismiss();
-              onConfirm();
-            }}
-            accessibilityLabel="Continuar"
-          />
+          <View style={styles.actions}>
+            <PillActionButton
+              variant="repeat"
+              label="VOLVER ATRÁS"
+              onPress={onConfirm}
+              accessibilityLabel="Volver atrás"
+            />
+            <PillActionButton
+              variant="continue"
+              onPress={onDismiss}
+              accessibilityLabel="Continuar"
+            />
+          </View>
         </Pressable>
       </Pressable>
     </Modal>
@@ -47,7 +52,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderRadius: borderRadius.lg,
     borderWidth: 3,
-    borderColor: '#0D6E74',
+    borderColor: palette.turqShadeMain,
     padding: spacing.lg,
     gap: spacing.md,
   },
@@ -63,5 +68,9 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     textAlign: 'center',
     lineHeight: 22,
+  },
+  actions: {
+    gap: spacing.sm,
+    marginTop: spacing.xs,
   },
 });

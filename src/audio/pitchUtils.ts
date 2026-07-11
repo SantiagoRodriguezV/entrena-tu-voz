@@ -5,6 +5,7 @@ import {
   PITCH_THRESHOLDS,
   SNAP_STRENGTH,
 } from '../types/exercise';
+import { colors } from '../theme/colors';
 
 export {
   ASSISTIVE_MARGIN_CENTS,
@@ -34,8 +35,8 @@ export function getPitchScore(centsError: number): number {
   if (abs <= PITCH_THRESHOLDS.perfectCents) return 1;
   if (abs <= PITCH_THRESHOLDS.goodCents) return 0.85;
   if (abs <= PITCH_THRESHOLDS.partialCents) return 0.6;
-  if (abs <= PITCH_THRESHOLDS.weakCents) return 0.35;
-  return 0.1;
+  if (abs <= PITCH_THRESHOLDS.weakCents) return 0.25;
+  return 0;
 }
 
 export function getCurrentTargetNote(
@@ -107,11 +108,11 @@ export function isPitchOnTarget(
 
 export function getPitchColor(centsError: number): string {
   const abs = Math.abs(centsError);
-  if (abs <= PITCH_THRESHOLDS.perfectCents) return '#22BAA6';
-  if (abs <= PITCH_THRESHOLDS.goodCents) return '#5ED4C4';
-  if (abs <= PITCH_THRESHOLDS.partialCents) return '#F4AC45';
-  if (abs <= PITCH_THRESHOLDS.weakCents) return '#DD475B';
-  return '#767676';
+  if (abs <= PITCH_THRESHOLDS.perfectCents) return colors.pitchPerfect;
+  if (abs <= PITCH_THRESHOLDS.goodCents) return colors.pitchGood;
+  if (abs <= PITCH_THRESHOLDS.partialCents) return colors.pitchPartial;
+  if (abs <= PITCH_THRESHOLDS.weakCents) return colors.pitchWeak;
+  return colors.pitchMiss;
 }
 
 export function getMinMaxHz(notes: ExerciseNote[]): { minHz: number; maxHz: number } {

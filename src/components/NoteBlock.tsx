@@ -1,5 +1,6 @@
 import { Rect, Text as SvgText } from 'react-native-svg';
 import { getColorFromAccuracy } from '../audio/accuracyUtils';
+import { colors, withOpacity } from '../theme/colors';
 import { ExerciseNote } from '../types/exercise';
 
 export type NotePaintSegment = {
@@ -27,8 +28,10 @@ export function NoteBlock({
   paintSegments,
   isActive,
 }: NoteBlockProps) {
-  const baseFill = isActive ? '#22BAA633' : '#FFFFFF18';
-  const stroke = isActive ? '#22BAA6' : '#767676';
+  const baseFill = isActive
+    ? withOpacity(colors.secondary, 0.2)
+    : withOpacity(colors.light, 0.09);
+  const stroke = isActive ? colors.secondary : colors.signalLow;
 
   return (
     <>

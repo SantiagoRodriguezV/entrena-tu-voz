@@ -1,18 +1,22 @@
 import { ReactNode, useMemo } from 'react';
 import { StyleSheet, View } from 'react-native';
-import { getMinMaxHz, hzToY } from '../../audio/pitchUtils';
 import { ExerciseNote } from '../../types/exercise';
 import { colors } from '../../theme/colors';
 import { useResponsive } from '../../theme/responsive';
 import {
-  getWarmupLaneMetrics,
-  warmupTimeToX,
-  type WarmupLaneMetrics,
+  getExerciseBandMetrics,
+  getExerciseNoteGridLayout,
+  timeToGridPlayheadX,
+  type ExerciseBandMetrics,
+  type NoteGridCell,
 } from '../../theme/warmupLaneMetrics';
 import { WarmupNoteRect } from './WarmupNoteRect';
 
 export {
   getWarmupLaneMetrics,
+  getExerciseBandMetrics,
+  getExerciseNoteGridLayout,
+  timeToGridPlayheadX,
   warmupTimeToX,
   WARMUP_LANE_HEIGHT,
   WARMUP_NOTE_HEIGHT,
@@ -22,54 +26,36 @@ export {
   WARMUP_PIXELS_PER_MS,
 } from '../../theme/warmupLaneMetrics';
 
+export type { NoteGridCell, ExerciseBandMetrics };
+
 type WarmupNoteStaircaseProps = {
   notes: ExerciseNote[];
   vowelLabel: string;
   mode: 'static' | 'scrolling';
   activeNoteId?: string | null;
   illuminatedNoteId?: string | null;
+  /** Color for the active note glow based on live pitch accuracy. */
+  activeNoteColor?: string | null;
   timeMs?: number;
   overlay?: ReactNode;
 };
 
-function getStaticPositions(
-  notes: ExerciseNote[],
-  minHz: number,
-  maxHz: number,
-  metrics: WarmupLaneMetrics,
-) {
-  return notes.map((note, index) => {
-    const x = index * (metrics.noteWidth + metrics.noteGap) + 24;
-    const centerY = hzToY(note.targetHz, minHz, maxHz, metrics.laneHeight);
-    const y = centerY - metrics.noteHeight / 2;
-    return { note, x, y };
-  });
-}
-
-function getScrollLayout(
-  note: ExerciseNote,
-  minHz: number,
-  maxHz: number,
-  metrics: WarmupLaneMetrics,
-) {
-  const x = warmupTimeToX(note.startMs, metrics.pixelsPerMs);
-  const width = Math.max(
-    metrics.noteWidth,
-    note.durationMs * metrics.pixelsPerMs,
-  );
-  const centerY = hzToY(note.targetHz, minHz, maxHz, metrics.laneHeight);
-  const y = centerY - metrics.noteHeight / 2;
-  return { x, y, width, centerY };
-}
-
+/** @deprecated Prefer getExerciseNoteGridLayout — kept for call-site compatibility. */
 export function getWarmupScrollLayout(
   note: ExerciseNote,
-  minHz: number,
-  maxHz: number,
-  metrics?: WarmupLaneMetrics,
+  _minHz: number,
+  _maxHz: number,
+  metrics?: ReturnType<typeof getExerciseBandMetrics>,
 ) {
-  const fallback = getWarmupLaneMetrics(412, 891);
-  return getScrollLayout(note, minHz, maxHz, metrics ?? fallback);
+  const band = metrics ?? getExerciseBandMetrics(1055, 412);
+  const cells = getExerciseNoteGridLayout([note], band);
+  const cell = cells[0];
+  return {
+    x: cell?.x ?? band.gridOffsetX,
+    y: cell?.y ?? band.gridOffsetY,
+    width: cell?.width ?? band.gridWidth,
+    centerY: cell?.centerY ?? band.bandHeight / 2,
+  };
 }
 
 export function WarmupNoteStaircase({
@@ -78,142 +64,77 @@ export function WarmupNoteStaircase({
   mode,
   activeNoteId = null,
   illuminatedNoteId = null,
+  activeNoteColor = null,
   timeMs = 0,
   overlay,
 }: WarmupNoteStaircaseProps) {
   const { width, height } = useResponsive();
-  const metrics = useMemo(
-    () => getWarmupLaneMetrics(width, height),
+  const band = useMemo(
+    () => getExerciseBandMetrics(width, height),
     [width, height],
   );
-  const { minHz, maxHz } = useMemo(() => getMinMaxHz(notes), [notes]);
+  const cells = useMemo(
+    () => getExerciseNoteGridLayout(notes, band),
+    [notes, band],
+  );
 
-  if (mode === 'static') {
-    const positions = getStaticPositions(notes, minHz, maxHz, metrics);
-    const contentWidth =
-      positions.length > 0
-        ? positions[positions.length - 1].x + metrics.noteWidth + 24
-        : 200;
-
-    return (
-      <View style={styles.staticContainer}>
-        <View
-          style={[
-            styles.centerLine,
-            { width: contentWidth, top: metrics.laneHeight / 2 },
-          ]}
-        />
-        <View
-          style={[
-            styles.notesLayer,
-            { width: contentWidth, height: metrics.laneHeight },
-          ]}
-        >
-          {positions.map(({ note, x, y }) => (
-            <WarmupNoteRect
-              key={note.id}
-              vowelLabel={vowelLabel}
-              isIlluminated={illuminatedNoteId === note.id}
-              width={metrics.noteWidth}
-              height={metrics.noteHeight}
-              style={{ position: 'absolute', left: x, top: y }}
-            />
-          ))}
-        </View>
-      </View>
-    );
-  }
-
-  const lastNote = notes[notes.length - 1];
-  const totalWidth = lastNote
-    ? warmupTimeToX(lastNote.startMs + lastNote.durationMs, metrics.pixelsPerMs) + 40
-    : 200;
-  const scrollOffset =
-    warmupTimeToX(timeMs, metrics.pixelsPerMs) - metrics.playheadX;
+  const highlightId = mode === 'static' ? illuminatedNoteId : activeNoteId;
+  const playheadX =
+    mode === 'scrolling' ? timeToGridPlayheadX(timeMs, cells) : null;
 
   return (
-    <View style={styles.scrollContainer}>
-      <View style={[styles.laneFrame, { height: metrics.laneHeight }]}>
-        <View
-          style={[
-            styles.scrollContent,
-            {
-              width: totalWidth,
-              height: metrics.laneHeight,
-              transform: [{ translateX: -scrollOffset }],
-            },
-          ]}
-        >
+    <View style={[styles.bandFrame, { width: band.bandWidth, height: band.bandHeight }]}>
+      <View
+        style={[
+          styles.gridLayer,
+          { width: band.bandWidth, height: band.bandHeight },
+        ]}
+      >
+        {cells.map((cell) => {
+          const isActive = highlightId === cell.note.id;
+          return (
+            <WarmupNoteRect
+              key={cell.note.id}
+              vowelLabel={vowelLabel}
+              isIlluminated={isActive}
+              accuracyColor={isActive ? activeNoteColor : null}
+              width={cell.width}
+              height={cell.height}
+              style={{ position: 'absolute', left: cell.x, top: cell.y }}
+            />
+          );
+        })}
+      </View>
+
+      {playheadX !== null ? (
+        <>
+          <View style={[styles.playhead, { left: playheadX }]}>
+            <View style={styles.playheadSquare} />
+          </View>
           <View
             style={[
-              styles.centerLine,
-              { width: totalWidth, top: metrics.laneHeight / 2 },
+              styles.playheadDot,
+              {
+                left: playheadX - 6,
+                top: band.bandHeight / 2 - 6,
+              },
             ]}
           />
-          {notes.map((note) => {
-            const { x, y, width: noteW } = getScrollLayout(
-              note,
-              minHz,
-              maxHz,
-              metrics,
-            );
-            return (
-              <WarmupNoteRect
-                key={note.id}
-                vowelLabel={vowelLabel}
-                isIlluminated={activeNoteId === note.id}
-                width={noteW}
-                height={metrics.noteHeight}
-                style={{ position: 'absolute', left: x, top: y }}
-              />
-            );
-          })}
-        </View>
+        </>
+      ) : null}
 
-        <View style={[styles.playhead, { left: metrics.playheadX }]}>
-          <View style={styles.playheadSquare} />
-        </View>
-        <View
-          style={[
-            styles.playheadDot,
-            {
-              left: metrics.playheadX - 6,
-              top: metrics.laneHeight / 2 - 6,
-            },
-          ]}
-        />
-        {overlay}
-      </View>
+      {overlay}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  staticContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  scrollContainer: {
-    flex: 1,
-    justifyContent: 'center',
-  },
-  laneFrame: {
-    width: '100%',
+  bandFrame: {
     overflow: 'hidden',
     position: 'relative',
+    alignSelf: 'center',
   },
-  scrollContent: {
-    position: 'relative',
-  },
-  centerLine: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    height: 1,
-    backgroundColor: '#555555',
-  },
-  notesLayer: {
+  gridLayer: {
     position: 'relative',
   },
   playhead: {
@@ -238,6 +159,6 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     backgroundColor: colors.light,
     borderWidth: 2,
-    borderColor: '#1F1F1F',
+    borderColor: colors.background,
   },
 });

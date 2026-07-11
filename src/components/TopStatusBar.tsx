@@ -2,6 +2,8 @@ import { RefObject } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import NavProfileIcon from '../../assets/icons/nav-profile.svg';
 import NavSettingsIcon from '../../assets/icons/nav-settings.svg';
+import RachaActivadaIcon from '../../assets/icons/racha-activada.svg';
+import RachaApagadaIcon from '../../assets/icons/racha-apagada.svg';
 import { UserProgress, getInitialUserProgress } from '../audio/xpSystem';
 import { AppIcon } from './AppIcon';
 import { LevelXpBadge } from './LevelXpBadge';
@@ -24,8 +26,6 @@ type TopStatusBarProps = {
   onOpenWarmupPanel: () => void;
 };
 
-const streakIconActive = require('../../assets/images/streak-icon.png');
-const streakIconInactive = require('../../assets/images/racha-apagada.png');
 const warmupActiveImage = require('../../assets/images/warmup-active.png');
 const warmupInactiveImage = require('../../assets/images/warmup-inactive.png');
 
@@ -68,8 +68,10 @@ export function TopStatusBar({
             accessibilityLabel="Ver racha"
           >
             <AppIcon
-              icon={streakActive ? streakIconActive : streakIconInactive}
+              icon={streakActive ? RachaActivadaIcon : RachaApagadaIcon}
               size={iconSize}
+              width={Math.round(iconSize * (289 / 416))}
+              height={iconSize}
             />
             <Text style={styles.statValue}>{streakCount}</Text>
           </Pressable>

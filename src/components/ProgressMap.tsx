@@ -16,7 +16,7 @@ import Animated, {
 import { getMaxMapRow } from '../data/levels';
 import { MAP_EDGES } from '../data/mapEdges';
 import { Level, NodeLayoutMetrics } from '../types/exercise';
-import { getLevelAccent } from '../theme/colors';
+import { colors, getLevelAccent } from '../theme/colors';
 import { LevelInfoPanel, PANEL_WIDTH_BASE } from './LevelInfoPanel';
 import { LevelNode } from './LevelNode';
 import { useResponsive } from '../theme/responsive';
@@ -36,7 +36,7 @@ export const PATH_WIDTH_BASE = 340;
 export const NODE_HEIGHT = NODE_HEIGHT_BASE;
 /** @deprecated use PATH_WIDTH_BASE with useResponsive */
 export const PATH_WIDTH = PATH_WIDTH_BASE;
-const LOCKED_PATH_COLOR = '#3A3A3A';
+const LOCKED_PATH_COLOR = colors.border;
 const ESTIMATED_PANEL_HEIGHT = 260;
 
 function buildDownwardPath(from: NodeLayoutMetrics, to: NodeLayoutMetrics): string {

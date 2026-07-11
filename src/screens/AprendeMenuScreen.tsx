@@ -1,13 +1,12 @@
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SectionNivel, SECTION_NIVELES } from '../data/sectionNiveles';
-import { SectionBackHeader } from '../components/SectionBackHeader';
 import { palette, withOpacity } from '../theme/colors';
 import { spacing } from '../theme/spacing';
 import { fonts, fontSizes } from '../theme/typography';
 
 type AprendeMenuScreenProps = {
   onOpenNivel: (nivel: SectionNivel) => void;
-  onNavigateHome: () => void;
+  onNavigateHome?: () => void;
 };
 
 function NivelCard({
@@ -40,10 +39,9 @@ function NivelCard({
   );
 }
 
-export function AprendeMenuScreen({ onOpenNivel, onNavigateHome }: AprendeMenuScreenProps) {
+export function AprendeMenuScreen({ onOpenNivel }: AprendeMenuScreenProps) {
   return (
     <View style={styles.root}>
-      <SectionBackHeader onBack={onNavigateHome} />
       <Text style={styles.heading}>Aprende</Text>
       <Text style={styles.subheading}>Elige un nivel para continuar</Text>
 

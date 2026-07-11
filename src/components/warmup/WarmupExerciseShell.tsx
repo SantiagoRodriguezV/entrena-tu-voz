@@ -1,10 +1,19 @@
-import { ReactNode } from 'react';
+import { ReactNode, useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ExerciseBackHeader } from '../ExerciseBackHeader';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
-import { fonts, exerciseTitleType, fontSizes } from '../../theme/typography';
+import {
+  fonts,
+  exerciseSessionTitleType,
+  exerciseTitleType,
+  fontSizes,
+} from '../../theme/typography';
 import { useResponsive } from '../../theme/responsive';
+import { getExerciseBandMetrics } from '../../theme/warmupLaneMetrics';
+import PausaIcon from '../../../assets/icons/pausa.svg';
+import { ExercisePauseOverlay } from './ExercisePauseOverlay';
 
 type WarmupExerciseShellProps = {
   lessonTitle: string;
@@ -13,7 +22,10 @@ type WarmupExerciseShellProps = {
   hint?: string;
   score?: number;
   showPause?: boolean;
-  onPause?: () => void;
+  /** Called when pause overlay opens/closes so parent can freeze timeline/audio. */
+  onPausedChange?: (paused: boolean) => void;
+  onRestartSession?: () => void;
+  onExitToLessonMenu?: () => void;
   onBack?: () => void;
   footer?: ReactNode;
 };
@@ -25,59 +37,126 @@ export function WarmupExerciseShell({
   hint,
   score,
   showPause = false,
-  onPause,
+  onPausedChange,
+  onRestartSession,
+  onExitToLessonMenu,
   onBack,
   footer,
 }: WarmupExerciseShellProps) {
-  const { width, height, moderateScale } = useResponsive();
+  const insets = useSafeAreaInsets();
+  const { width, height } = useResponsive();
   const isLandscape = width > height;
-  const controlSize = moderateScale(isLandscape ? 36 : 40);
+  const band = getExerciseBandMetrics(width, height);
+  const scaleX = width / 1055;
+  const scaleY = height / 412;
+  const pauseSize = isLandscape ? 32 * scaleX : 32;
+  const pauseLeft = isLandscape ? 32 * scaleX : 32;
+  const pauseTop = isLandscape ? 24 * scaleY : 24;
+  const scoreBottom = isLandscape ? 24 * scaleY : 24;
+
+  const [paused, setPaused] = useState(false);
+
+  useEffect(() => {
+    onPausedChange?.(paused);
+  }, [paused, onPausedChange]);
+
+  const openPause = () => setPaused(true);
+  const closePause = () => setPaused(false);
 
   return (
-    <View style={[styles.root, isLandscape && styles.rootLandscape]}>
-      <View style={[styles.header, isLandscape && styles.headerLandscape]}>
-        {onBack ? (
-          <ExerciseBackHeader onConfirmBack={onBack} />
-        ) : (
-          <View style={[styles.controlPlaceholder, { width: controlSize, height: controlSize }]} />
-        )}
-        {showPause ? (
-          <Pressable
-            onPress={onPause}
-            accessibilityRole="button"
-            accessibilityLabel="Pausar"
-            style={({ pressed }) => [
-              styles.pauseButton,
-              { width: controlSize, height: controlSize },
-              pressed && styles.pressed,
-            ]}
-          >
-            <View style={styles.pauseBar} />
-            <View style={styles.pauseBar} />
-          </Pressable>
-        ) : (
-          <View style={[styles.controlPlaceholder, { width: controlSize, height: controlSize }]} />
-        )}
-        <Text style={styles.lessonTitle}>{lessonTitle}</Text>
-      </View>
-
-      <Text style={styles.vowel}>{vowelLabel}</Text>
-
-      {hint ? (
-        <Text style={[styles.hint, isLandscape && styles.hintLandscape]}>{hint}</Text>
+    <View style={[styles.root, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
+      {showPause ? (
+        <Pressable
+          onPress={openPause}
+          accessibilityRole="button"
+          accessibilityLabel="Pausar"
+          style={({ pressed }) => [
+            styles.pauseButton,
+            {
+              width: pauseSize,
+              height: pauseSize,
+              left: pauseLeft,
+              top: insets.top + pauseTop,
+            },
+            pressed && styles.pressed,
+          ]}
+        >
+          <PausaIcon width={pauseSize} height={pauseSize} />
+        </Pressable>
       ) : null}
 
-      <View style={[styles.band, isLandscape && styles.bandLandscape]}>{children}</View>
-
-      <View style={[styles.footer, isLandscape && styles.footerLandscape]}>
-        {footer ??
-          (score !== undefined ? (
-            <View style={styles.scoreRow}>
-              <Text style={styles.scoreIcon}>♪</Text>
-              <Text style={styles.scoreValue}>{score}</Text>
-            </View>
-          ) : null)}
+      <View
+        style={[
+          styles.topChrome,
+          {
+            height: Math.max(band.marginTop - 8, isLandscape ? 56 : 72),
+            paddingLeft: Math.max(
+              band.marginLeft,
+              showPause ? pauseLeft + pauseSize + 8 : band.marginLeft,
+            ),
+            paddingRight: band.marginRight,
+          },
+        ]}
+      >
+        <View style={styles.headerRow}>
+          {onBack ? (
+            <ExerciseBackHeader onConfirmBack={onBack} />
+          ) : (
+            <View style={styles.controlPlaceholder} />
+          )}
+          <Text style={styles.lessonTitle} numberOfLines={1}>
+            {lessonTitle}
+          </Text>
+        </View>
+        <Text style={styles.vowel}>{vowelLabel}</Text>
+        {hint ? (
+          <Text
+            style={[styles.hint, isLandscape && styles.hintLandscape]}
+            numberOfLines={1}
+          >
+            {hint}
+          </Text>
+        ) : null}
       </View>
+
+      <View
+        style={[
+          styles.band,
+          {
+            width: band.bandWidth,
+            height: band.bandHeight,
+            marginLeft: band.marginLeft,
+            marginRight: band.marginRight,
+          },
+        ]}
+      >
+        {children}
+      </View>
+
+      <View style={[styles.footer, { marginBottom: scoreBottom }]}>
+        {footer}
+        {score !== undefined ? (
+          <View style={styles.scoreRow}>
+            <Text style={styles.scoreIcon}>♪</Text>
+            <Text style={styles.scoreValue}>{score}</Text>
+          </View>
+        ) : null}
+      </View>
+
+      {showPause ? (
+        <ExercisePauseOverlay
+          visible={paused}
+          onResume={closePause}
+          onRestart={() => {
+            closePause();
+            onRestartSession?.();
+          }}
+          onExitToLessonMenu={() => {
+            closePause();
+            onExitToLessonMenu?.();
+          }}
+        />
+      ) : null}
     </View>
   );
 }
@@ -86,49 +165,34 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: '#2B2B2B',
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.sm,
-    paddingBottom: spacing.md,
-  },
-  rootLandscape: {
-    paddingTop: spacing.xs,
-    paddingBottom: spacing.xs,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    marginBottom: spacing.xs,
-  },
-  headerLandscape: {
-    marginBottom: 2,
-  },
-  controlPlaceholder: {
-    flexShrink: 0,
   },
   pauseButton: {
-    borderRadius: 10,
-    backgroundColor: '#3A3A3A',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 5,
-    flexShrink: 0,
-  },
-  pauseBar: {
-    width: 4,
-    height: 16,
-    backgroundColor: colors.light,
-    borderRadius: 1,
+    position: 'absolute',
+    zIndex: 20,
+    borderRadius: 8,
+    overflow: 'hidden',
   },
   pressed: {
     opacity: 0.85,
   },
+  topChrome: {
+    justifyContent: 'center',
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  controlPlaceholder: {
+    width: 40,
+    height: 40,
+    flexShrink: 0,
+  },
   lessonTitle: {
     fontFamily: fonts.title,
-    fontSize: exerciseTitleType.fontSize,
-    lineHeight: exerciseTitleType.lineHeight,
-    letterSpacing: exerciseTitleType.letterSpacing,
+    fontSize: exerciseSessionTitleType.fontSize,
+    lineHeight: exerciseSessionTitleType.lineHeight,
+    letterSpacing: exerciseSessionTitleType.letterSpacing,
     color: colors.secondary,
     flex: 1,
   },
@@ -139,43 +203,34 @@ const styles = StyleSheet.create({
     letterSpacing: exerciseTitleType.letterSpacing,
     color: colors.light,
     textAlign: 'center',
-    marginBottom: spacing.sm,
   },
   hint: {
     fontFamily: fonts.body,
     fontSize: fontSizes.sm,
     color: colors.textSecondary,
     textAlign: 'center',
-    marginBottom: spacing.sm,
   },
   hintLandscape: {
-    marginBottom: spacing.xs,
     fontSize: fontSizes.xs,
   },
   band: {
-    flex: 1,
     backgroundColor: '#383838',
     borderRadius: 12,
     overflow: 'hidden',
     justifyContent: 'center',
-    minHeight: 100,
-  },
-  bandLandscape: {
-    minHeight: 80,
+    alignItems: 'center',
+    alignSelf: 'center',
   },
   footer: {
-    minHeight: 48,
+    flex: 1,
     alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: spacing.sm,
-  },
-  footerLandscape: {
-    minHeight: 36,
-    marginTop: spacing.xs,
+    justifyContent: 'flex-end',
+    gap: spacing.sm,
   },
   scoreRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: spacing.sm,
   },
   scoreIcon: {

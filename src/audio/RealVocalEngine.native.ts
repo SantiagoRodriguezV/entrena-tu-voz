@@ -1,10 +1,11 @@
-import { Platform } from 'react-native';
 import { PitchStabilizer } from './pitchStabilizer';
 import { getVolumeCategory } from './volumeUtils';
+import { evaluateCaptureQuality } from './evaluation/captureQuality';
 import { VocalFrame } from '../types/exercise';
+import { Platform } from 'react-native';
 
-// Demo note: this is not calibrated dB SPL.
-// rmsDb from the tuner engine is relative dBFS for visual feedback.
+// relativeDb / volumeDb are NOT calibrated dB SPL.
+// They are relative mic levels derived from tuner rmsDb (approx. dBFS).
 
 type PitchEvent = {
   hasPitch: boolean;
@@ -38,36 +39,58 @@ function getTunerEngine(): TunerEngineType | null {
     return null;
   }
   try {
-    // Lazy require: avoids TurboModule crash on web and missing native module in Expo Go.
     const mod = require('react-native-tuner-engine') as {
       TunerEngine: TunerEngineType;
     };
     return mod.TunerEngine ?? null;
-  } catch (error) {
+  } catch {
     tunerLoadFailed = true;
     return null;
   }
 }
 
-function rmsToDisplayDb(rmsDb: number): number {
+/** Map tuner rmsDb (≈dBFS) to a 30–95 relative display scale. */
+function rmsToRelativeDb(rmsDb: number): number {
   return Math.max(30, Math.min(95, 90 + rmsDb));
 }
 
 function buildFrame(nowMs: number): VocalFrame {
   const hasPitch = latestPitch?.hasPitch ?? false;
-  const rawHz = hasPitch && latestPitch ? latestPitch.frequency : null;
+  const pitchConfidence = latestPitch?.confidence ?? 0;
+  const rawHz = hasPitch && latestPitch && latestPitch.frequency > 0
+    ? latestPitch.frequency
+    : null;
   const rmsDb = latestPitch?.rmsDb ?? -80;
-  const isVoiceActive = hasPitch && (latestPitch?.confidence ?? 0) >= 0.5;
+  // Real sung detection only — do NOT include stabilizer hold (avoids ghost scoring).
+  const voiceDetected =
+    hasPitch && pitchConfidence >= 0.55 && rawHz !== null;
 
-  const stabilizedHz = stabilizer.stabilize(rawHz, isVoiceActive, nowMs);
-  const volumeDb = isVoiceActive || stabilizer.isVoiceHeld ? rmsToDisplayDb(rmsDb) : null;
+  const displayHz = stabilizer.stabilize(rawHz, voiceDetected, nowMs);
+  const relativeDb = voiceDetected ? rmsToRelativeDb(rmsDb) : null;
+  const volumeCategory =
+    relativeDb !== null ? getVolumeCategory(relativeDb) : 'low';
+
+  const capture = evaluateCaptureQuality({
+    pitchConfidence,
+    isVoiceActive: voiceDetected,
+    relativeDb,
+    volumeCategory,
+  });
 
   return {
     timeMs: nowMs - sessionStartMs,
-    detectedHz: stabilizedHz,
-    volumeDb,
-    volumeCategory: volumeDb !== null ? getVolumeCategory(volumeDb) : 'low',
-    isVoiceActive: isVoiceActive || stabilizer.isVoiceHeld,
+    detectedHz: displayHz,
+    rawHz: voiceDetected ? rawHz : null,
+    pitchConfidence,
+    relativeDb,
+    volumeDb: relativeDb,
+    volumeCategory,
+    isVoiceActive: voiceDetected,
+    harmonicityScore: null,
+    noiseRatioProxy: null,
+    stabilityScore: null,
+    clippingDetected: capture.clippingDetected,
+    captureConfidence: capture.captureConfidence,
   };
 }
 
@@ -92,7 +115,7 @@ export async function startRealVocalEngine(): Promise<boolean> {
 
     await TunerEngine.configure({
       minFrequency: 80,
-      maxFrequency: 500,
+      maxFrequency: 1200,
       noiseGateDb: -50,
       confidenceThreshold: 0.5,
       emaAlpha: 0.32,

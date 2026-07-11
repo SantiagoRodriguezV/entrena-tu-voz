@@ -1,4 +1,5 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import NavMenuActive from '../../assets/icons/nav-menu-active.svg';
 import NavMenuInactive from '../../assets/icons/nav-menu-inactive.svg';
 import NavAprendeActive from '../../assets/icons/nav-aprende-active.svg';
@@ -9,7 +10,6 @@ import NavDesafiosActive from '../../assets/icons/nav-desafios-active.svg';
 import NavDesafiosInactive from '../../assets/icons/nav-desafios-inactive.svg';
 import { AppIcon } from './AppIcon';
 import { MainTab } from '../types/exercise';
-import { BOTTOM_NAV_SAFE_MARGIN } from '../theme/spacing';
 import { fonts } from '../theme/typography';
 
 type BottomNavBarProps = {
@@ -56,8 +56,11 @@ const tabs: {
 ];
 
 export function BottomNavBar({ activeTab, onTabChange }: BottomNavBarProps) {
+  const insets = useSafeAreaInsets();
+  const bottomPad = Math.max(insets.bottom, 8);
+
   return (
-    <View style={styles.bar}>
+    <View style={[styles.bar, { paddingBottom: bottomPad }]}>
       {tabs.map((tab) => {
         const isActive = activeTab === tab.id;
         return (
@@ -87,7 +90,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'flex-start',
     paddingTop: 8,
-    paddingBottom: BOTTOM_NAV_SAFE_MARGIN,
     paddingHorizontal: NAV_HORIZONTAL_MARGIN,
     backgroundColor: '#1A1A1A',
     borderTopWidth: 1,

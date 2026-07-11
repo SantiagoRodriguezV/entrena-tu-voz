@@ -13,6 +13,13 @@ export const fontSizes = {
   hero: 36,
 } as const;
 
+/** Session type label on exercise screens: 12pt, 100% LH, 5% tracking */
+export const exerciseSessionTitleType = {
+  fontSize: 12,
+  lineHeight: 12,
+  letterSpacing: 12 * 0.05,
+} as const;
+
 /** Exercise screen titles: 32pt, 120% line height, 3% tracking */
 export const exerciseTitleType = {
   fontSize: 32,

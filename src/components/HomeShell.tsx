@@ -1,5 +1,6 @@
 import { ReactNode, RefObject, createContext, useContext, useRef } from 'react';
 import { StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MainTab } from '../types/exercise';
 import { UserProgress } from '../audio/xpSystem';
 import { BottomNavBar } from './BottomNavBar';
@@ -54,6 +55,7 @@ export function HomeShell({
   onOpenProfile,
   onLongPress,
 }: HomeShellProps) {
+  const insets = useSafeAreaInsets();
   const streakAnchorRef = useRef<View>(null);
   const warmupAnchorRef = useRef<View>(null);
   const topBarActionsRef = useRef<TopBarActions>({});
@@ -71,19 +73,21 @@ export function HomeShell({
       value={{ streakAnchorRef, warmupAnchorRef, topBarActionsRef }}
     >
       <View style={styles.root}>
-        <TopStatusBar
-          userProgress={userProgress}
-          streakActive={streakActive}
-          streakCount={streakCount}
-          warmupTokenActive={warmupTokenActive}
-          streakAnchorRef={streakAnchorRef}
-          warmupAnchorRef={warmupAnchorRef}
-          onOpenStreakPanel={handleOpenStreak}
-          onOpenWarmupPanel={handleOpenWarmup}
-          onOpenSettings={onOpenSettings}
-          onOpenProfile={onOpenProfile}
-          onLongPress={onLongPress}
-        />
+        <View style={{ paddingTop: insets.top, backgroundColor: palette.dark80 }}>
+          <TopStatusBar
+            userProgress={userProgress}
+            streakActive={streakActive}
+            streakCount={streakCount}
+            warmupTokenActive={warmupTokenActive}
+            streakAnchorRef={streakAnchorRef}
+            warmupAnchorRef={warmupAnchorRef}
+            onOpenStreakPanel={handleOpenStreak}
+            onOpenWarmupPanel={handleOpenWarmup}
+            onOpenSettings={onOpenSettings}
+            onOpenProfile={onOpenProfile}
+            onLongPress={onLongPress}
+          />
+        </View>
         <View style={styles.content}>{children}</View>
         {showBottomNav && (
           <BottomNavBar activeTab={activeTab} onTabChange={onTabChange} />

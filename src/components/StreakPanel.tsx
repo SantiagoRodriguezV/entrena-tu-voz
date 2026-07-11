@@ -14,7 +14,7 @@ type StreakPanelProps = {
   onDismiss: () => void;
 };
 
-const STREAK_VALUE_COLOR = '#DD475B';
+const STREAK_VALUE_COLOR = colors.primary;
 
 export function StreakPanel({
   visible,

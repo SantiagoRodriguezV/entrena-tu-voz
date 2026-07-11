@@ -1,10 +1,12 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { colors } from '../theme/colors';
+import { colors, neutral } from '../theme/colors';
 import { fonts, fontSizes } from '../theme/typography';
 
 type PillActionButtonProps = {
   variant: 'continue' | 'repeat' | 'locked';
   onPress?: () => void;
+  /** Overrides the default variant label (e.g. VOLVER ATRÁS). */
+  label?: string;
   accessibilityLabel?: string;
   style?: object;
   disabled?: boolean;
@@ -17,13 +19,13 @@ const VARIANTS = {
     label: 'CONTINUAR',
   },
   repeat: {
-    topColor: '#5A5A5A',
-    bottomColor: '#3A3A3A',
+    topColor: neutral[600],
+    bottomColor: neutral[800],
     label: 'REPETIR',
   },
   locked: {
-    topColor: '#4A4A4A',
-    bottomColor: '#333333',
+    topColor: neutral[700],
+    bottomColor: neutral[900],
     label: 'BLOQUEADO',
   },
 } as const;
@@ -31,11 +33,13 @@ const VARIANTS = {
 export function PillActionButton({
   variant,
   onPress,
+  label,
   accessibilityLabel,
   style,
   disabled = false,
 }: PillActionButtonProps) {
   const config = VARIANTS[variant];
+  const displayLabel = label ?? config.label;
   const isDisabled = disabled || variant === 'locked';
 
   return (
@@ -43,7 +47,7 @@ export function PillActionButton({
       onPress={isDisabled ? undefined : onPress}
       disabled={isDisabled}
       accessibilityRole="button"
-      accessibilityLabel={accessibilityLabel ?? config.label}
+      accessibilityLabel={accessibilityLabel ?? displayLabel}
       accessibilityState={{ disabled: isDisabled }}
       style={({ pressed }) => [
         styles.wrap,
@@ -55,7 +59,7 @@ export function PillActionButton({
       <View style={styles.pill}>
         <View style={[styles.half, styles.topHalf, { backgroundColor: config.topColor }]} />
         <View style={[styles.half, styles.bottomHalf, { backgroundColor: config.bottomColor }]} />
-        <Text style={[styles.label, isDisabled && styles.labelDisabled]}>{config.label}</Text>
+        <Text style={[styles.label, isDisabled && styles.labelDisabled]}>{displayLabel}</Text>
       </View>
     </Pressable>
   );

@@ -24,6 +24,8 @@ export type Level = {
 
 export type MainTab = 'menu' | 'aprende' | 'entrena' | 'desafios';
 
+export type { VoiceTypeId } from '../data/voiceTypeRanges';
+
 export type ExerciseNote = {
   id: string;
   label: string;
@@ -34,12 +36,45 @@ export type ExerciseNote = {
 
 export type VolumeCategory = 'low' | 'moderate' | 'high' | 'extreme';
 
+export type CoachingMessage =
+  | 'higher'
+  | 'lower'
+  | 'keepGoing'
+  | 'holdNote'
+  | 'tooQuiet'
+  | 'tooLoud'
+  | 'noVoice'
+  | 'unstable'
+  | 'good'
+  | 'uncertain'
+  | 'reachNote'
+  | 'pitchOkTooLoud'
+  | 'pitchOkExtreme';
+
+/** Relative mic level — not calibrated dB SPL. */
 export type VocalFrame = {
   timeMs: number;
+  /** Stabilized Hz for UI indicator. */
   detectedHz: number | null;
+  /** Lightly gated raw Hz for scoring (more faithful). */
+  rawHz: number | null;
+  pitchConfidence: number;
+  relativeDb: number | null;
+  /** Alias of relativeDb for existing UI/scoring call sites. */
   volumeDb: number | null;
   volumeCategory: VolumeCategory;
   isVoiceActive: boolean;
+  harmonicityScore: number | null;
+  noiseRatioProxy: number | null;
+  stabilityScore: number | null;
+  clippingDetected: boolean;
+  captureConfidence: number;
+};
+
+/** Frame enriched with the active exercise note target. */
+export type EnrichedVocalFrame = VocalFrame & {
+  targetHz: number | null;
+  pitchErrorCents: number | null;
 };
 
 export type DemoScenario =
@@ -58,7 +93,17 @@ export type NotePerformance = {
   pitchScore: number;
   volumeScore: number;
   durationScore: number;
+  continuityScore: number;
+  stabilityScore: number;
+  captureScore: number;
   finalScore: number;
+};
+
+export type NoteEvaluation = NotePerformance;
+
+export type ExerciseEvaluation = {
+  overallScore: number;
+  noteEvaluations: NoteEvaluation[];
 };
 
 export type AppScreen =
@@ -67,6 +112,8 @@ export type AppScreen =
   | 'warmupCompleted'
   | 'lessonIntro'
   | 'rotateDevice'
+  | 'exerciseReady'
+  | 'vocalCalibration'
   | 'exerciseListen'
   | 'vocalExercise'
   | 'exerciseMiniResult'
@@ -91,9 +138,13 @@ export type ExerciseSessionResult = {
 };
 
 export const PITCH_THRESHOLDS = {
+  /** Within ~1/4 tone — strong match (equal temperament reference: A3=440 Hz). */
   perfectCents: 25,
+  /** Within ~1/2 tone — acceptable for beginners matching a target note. */
   goodCents: 50,
+  /** Within ~1 semitone — partial credit. */
   partialCents: 100,
+  /** Beyond ~1.5 semitones — weak / miss. */
   weakCents: 180,
 } as const;
 

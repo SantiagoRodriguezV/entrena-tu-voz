@@ -62,25 +62,46 @@ async function playTone(hz: number, durationMs: number): Promise<void> {
     activePlayer = null;
   }
   activePlayer = createAudioPlayer(uri);
+  activePlayer.volume = 1;
   activePlayer.play();
   await new Promise((resolve) => setTimeout(resolve, durationMs + 120));
 }
 
+/**
+ * Play demo tones through the speaker.
+ * Callers should pause the vocal mic while this runs — Android cannot
+ * reliably play and capture at the same time with the tuner session.
+ */
 export async function playNoteSequence(
   notes: ExerciseNote[],
   options?: NotePlaybackOptions,
 ): Promise<void> {
-  await setAudioModeAsync({ playsInSilentMode: true });
+  await setAudioModeAsync({
+    playsInSilentMode: true,
+    allowsRecording: false,
+    shouldRouteThroughEarpiece: false,
+    interruptionMode: 'duckOthers',
+  });
   const gapMs = options?.gapMs ?? 0;
 
-  for (let i = 0; i < notes.length; i++) {
-    const note = notes[i];
-    options?.onNoteStart?.(note);
-    await playTone(note.targetHz, note.durationMs);
-    options?.onNoteEnd?.(note);
-    if (i < notes.length - 1 && gapMs > 0) {
-      await new Promise((r) => setTimeout(r, gapMs));
+  try {
+    for (let i = 0; i < notes.length; i++) {
+      const note = notes[i];
+      options?.onNoteStart?.(note);
+      await playTone(note.targetHz, note.durationMs);
+      options?.onNoteEnd?.(note);
+      if (i < notes.length - 1 && gapMs > 0) {
+        await new Promise((r) => setTimeout(r, gapMs));
+      }
     }
+  } finally {
+    // Re-open recording path so pitch detection can resume after demo.
+    await setAudioModeAsync({
+      playsInSilentMode: true,
+      allowsRecording: true,
+      shouldRouteThroughEarpiece: false,
+      interruptionMode: 'mixWithOthers',
+    }).catch(() => {});
   }
 }
 

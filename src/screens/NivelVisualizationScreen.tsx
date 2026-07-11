@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react';
 import {
   LayoutChangeEvent,
   Platform,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
@@ -138,7 +137,7 @@ export function NivelVisualizationScreen({
   }, [initialSectionNivelId, sectionOffsets]);
 
   return (
-    <SafeAreaView style={styles.root}>
+    <View style={styles.root}>
       <ScrollView
         ref={nivelScrollRef}
         style={styles.nivelScroll}
@@ -198,7 +197,7 @@ export function NivelVisualizationScreen({
         onDismiss={() => setActivePanel('none')}
       />
 
-    </SafeAreaView>
+    </View>
   );
 }
 
